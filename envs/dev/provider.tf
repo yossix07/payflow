@@ -10,8 +10,13 @@ terraform {
     }
   }
   
-  # Backend configuration will be added in Phase 2
-  # backend "s3" {}
+  backend "s3" {
+    bucket         = "saas-cluster-tfstate-467341cd"
+    key            = "dev/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "saas-cluster-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
