@@ -29,3 +29,11 @@ override.tf.json
 # CLI configuration files
 .terraformrc
 terraform.rc
+
+# Local Environment Variables (Secrets)
+.aws.env
+.env
+
+# Kubernetes
+kubeconfig
+*.kube

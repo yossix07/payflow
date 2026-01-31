@@ -104,6 +104,63 @@ resource "helm_release" "nginx_ingress" {
   
   # Optimization: Don't wait too long
   timeout = 1200
+
+  set {
+    name  = "defaultBackend.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "defaultBackend.image.repository"
+    value = aws_ecr_repository.platform_dashboard.repository_url
+  }
+
+  set {
+    name  = "defaultBackend.image.tag"
+    value = "latest"
+  }
+
+  set {
+    name  = "defaultBackend.image.pullPolicy"
+    value = "Always"
+  }
+
 }
 
 
+# =============================================================================
+# ECR REPOSITORIES
+# =============================================================================
+resource "aws_ecr_repository" "platform_dashboard" {
+  name                 = "platform-dashboard"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+output "platform_dashboard_repo_url" {
+  value = aws_ecr_repository.platform_dashboard.repository_url
+}
+
+# =============================================================================
+# KUBERNETES DATA & OUTPUTS
+# =============================================================================
+provider "kubernetes" {
+  host                   = module.compute.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.compute.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
+data "kubernetes_service" "ingress_nginx" {
+  metadata {
+    name      = "nginx-ingress-ingress-nginx-controller"
+    namespace = "ingress-nginx"
+  }
+  depends_on = [helm_release.nginx_ingress]
+}
+
+output "load_balancer_hostname" {
+  value = data.kubernetes_service.ingress_nginx.status.0.load_balancer.0.ingress.0.hostname
+}
