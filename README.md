@@ -15,6 +15,7 @@ This project implements a cost-efficient, scalable, and secure "SaaS-Ready Produ
 
 - `modules/`: Reusable Terraform modules (Network, Compute, Bootstrap).
 - `envs/`: Environment-specific configurations (Dev, Prod).
+- `apps/`: Source code for the applications (e.g., Platform Dashboard).
 
 ---
 
