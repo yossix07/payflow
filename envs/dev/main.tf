@@ -134,6 +134,7 @@ resource "helm_release" "nginx_ingress" {
 resource "aws_ecr_repository" "platform_dashboard" {
   name                 = "platform-dashboard"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true  # Allow deletion even when images exist
 
   image_scanning_configuration {
     scan_on_push = true
