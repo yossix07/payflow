@@ -17,6 +17,9 @@ app.get('/healthz', (req, res) => {
 
 // SSE endpoint for real-time payment events
 app.get('/events', (req, res) => {
+  const accepted = addClient(res);
+  if (!accepted) return; // 503 already sent by addClient
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -24,12 +27,9 @@ app.get('/events', (req, res) => {
     'Access-Control-Allow-Origin': '*',
   });
 
-  // Send initial connection event
   res.write(
     `data: ${JSON.stringify({ type: 'connected', message: 'Connected to payment event stream', timestamp: new Date().toISOString() })}\n\n`
   );
-
-  addClient(res);
 });
 
 const PORT = process.env.PORT || 8080;
