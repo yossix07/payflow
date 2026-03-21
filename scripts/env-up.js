@@ -1,15 +1,6 @@
-const { execSync, spawn } = require("child_process");
+const { execSync } = require("child_process");
 const http = require("http");
-
-const SERVICES = [
-  { name: "localstack", url: "http://localhost:4566/_localstack/health" },
-  { name: "payment-service", url: "http://localhost:8081/healthz" },
-  { name: "wallet-service", url: "http://localhost:8083/healthz" },
-  { name: "ledger-service", url: "http://localhost:8082/healthz" },
-  { name: "gateway-service", url: "http://localhost:8084/healthz" },
-  { name: "notification-service", url: "http://localhost:8085/healthz" },
-  { name: "platform-dashboard", url: "http://localhost:3000/healthz" },
-];
+const { SERVICES } = require("./lib/services");
 
 function checkHealth(url) {
   return new Promise((resolve) => {
