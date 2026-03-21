@@ -47,3 +47,15 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude Code IDE settings
+.claude/
+
+# AWS cost/budget config (personal)
+budget.json
+daily_filter.json
+filter.json
+notifications.json
+
+# Personal drafts
+linkedin_post_draft.md
