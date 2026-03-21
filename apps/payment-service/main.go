@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// Start outbox worker (background goroutine)
-	outboxWorker := outbox.NewWorker(outboxRepo, broadcastQueues, 100*time.Millisecond)
+	outboxWorker := outbox.NewWorker(outboxRepo, broadcastQueues)
 	go outboxWorker.Start(ctx)
 
 	// Start event consumer (background goroutine)

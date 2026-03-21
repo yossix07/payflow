@@ -6,19 +6,29 @@ const QUEUE_URL = process.env.QUEUE_URL;
 const BROADCAST_QUEUE_URLS = process.env.BROADCAST_QUEUE_URLS
   ? process.env.BROADCAST_QUEUE_URLS.split(',').map(u => u.trim()).filter(Boolean)
   : [QUEUE_URL];
-const POLL_INTERVAL = 100; // 100ms
+const BASE_INTERVAL = 500;
+const MAX_INTERVAL = 5000;
 const MAX_OUTBOX_RETRIES = 5;
 
 async function startOutboxWorker() {
   console.log('Starting outbox worker...');
+  let currentInterval = BASE_INTERVAL;
 
   while (true) {
     try {
-      await processOutbox();
-      await sleep(POLL_INTERVAL);
+      const count = await processOutbox();
+      if (count >= 10) {
+        currentInterval = 1;
+      } else if (count > 0) {
+        currentInterval = BASE_INTERVAL;
+      } else {
+        currentInterval = Math.min(currentInterval * 2, MAX_INTERVAL);
+      }
+      await sleep(currentInterval);
     } catch (error) {
       console.error('Error processing outbox:', error);
-      await sleep(5000); // Wait before retrying
+      currentInterval = BASE_INTERVAL;
+      await sleep(5000);
     }
   }
 }
@@ -60,6 +70,8 @@ async function processOutbox() {
       console.error(`Failed to process message ${msg.message_id}:`, error);
     }
   }
+
+  return messages.length;
 }
 
 async function sendWithRetry(queueUrl, messageBody) {

@@ -14,41 +14,61 @@ const maxOutboxRetries = 5
 
 // Worker polls the outbox and publishes messages to all queues
 type Worker struct {
-	outbox   Outbox
-	queues   []queue.QueueClient
-	interval time.Duration
+	outbox Outbox
+	queues []queue.QueueClient
 }
 
-func NewWorker(outbox Outbox, queues []queue.QueueClient, interval time.Duration) *Worker {
+func NewWorker(outbox Outbox, queues []queue.QueueClient) *Worker {
 	return &Worker{
-		outbox:   outbox,
-		queues:   queues,
-		interval: interval,
+		outbox: outbox,
+		queues: queues,
 	}
 }
 
 func (w *Worker) Start(ctx context.Context) {
 	log.Println("Starting outbox worker...")
-	ticker := time.NewTicker(w.interval)
-	defer ticker.Stop()
+
+	baseInterval := 500 * time.Millisecond
+	maxInterval := 5 * time.Second
+	currentInterval := baseInterval
+
+	timer := time.NewTimer(currentInterval)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Outbox worker stopped")
 			return
-		case <-ticker.C:
-			if err := w.processOutbox(ctx); err != nil {
+		case <-timer.C:
+			count, err := w.processOutbox(ctx)
+			if err != nil {
 				log.Printf("Error processing outbox: %v", err)
+				currentInterval = baseInterval
+			} else if count >= 10 {
+				currentInterval = 0
+			} else if count > 0 {
+				currentInterval = baseInterval
+			} else {
+				currentInterval *= 2
+				if currentInterval > maxInterval {
+					currentInterval = maxInterval
+				}
+			}
+
+			if currentInterval == 0 {
+				timer.Reset(time.Millisecond)
+			} else {
+				timer.Reset(currentInterval)
 			}
 		}
 	}
 }
 
-func (w *Worker) processOutbox(ctx context.Context) error {
+func (w *Worker) processOutbox(ctx context.Context) (int, error) {
 	messages, err := w.outbox.GetUnpublishedMessages(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	for _, msg := range messages {
@@ -92,7 +112,7 @@ func (w *Worker) processOutbox(ctx context.Context) error {
 		}
 	}
 
-	return nil
+	return len(messages), nil
 }
 
 func sendWithRetry(ctx context.Context, q queue.QueueClient, body string) error {

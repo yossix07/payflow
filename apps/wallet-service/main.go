@@ -79,7 +79,7 @@ func main() {
 	}
 
 	// Start outbox worker
-	outboxWorker := outbox.NewWorker(outboxRepo, broadcastQueues, 100*time.Millisecond)
+	outboxWorker := outbox.NewWorker(outboxRepo, broadcastQueues)
 	go outboxWorker.Start(ctx)
 
 	// Start event consumer
