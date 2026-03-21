@@ -103,16 +103,30 @@ function addEventToLog(data) {
 
   const paymentId = data.payment_id || data.saga_id || "";
   const shortId = paymentId ? paymentId.slice(0, 8) : "";
-  const detail = shortId
-    ? shortId + (data.amount ? " &mdash; $" + Number(data.amount).toFixed(2) : "")
+  const detailText = shortId
+    ? shortId + (data.amount ? " \u2014 $" + Number(data.amount).toFixed(2) : "")
     : data.message || "";
 
-  entry.innerHTML =
-    '<span class="event-time">' + timeStr + "</span>" +
-    '<div class="event-body">' +
-      '<div class="event-type" style="color:' + (flowMap[eventType] ? flowMap[eventType].color : "var(--text-primary)") + '">' + eventType + "</div>" +
-      '<div class="event-detail">' + detail + "</div>" +
-    "</div>";
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "event-time";
+  timeSpan.textContent = timeStr;
+
+  const typeDiv = document.createElement("div");
+  typeDiv.className = "event-type";
+  typeDiv.style.color = flowMap[eventType] ? flowMap[eventType].color : "var(--text-primary)";
+  typeDiv.textContent = eventType;
+
+  const detailDiv = document.createElement("div");
+  detailDiv.className = "event-detail";
+  detailDiv.textContent = detailText;
+
+  const bodyDiv = document.createElement("div");
+  bodyDiv.className = "event-body";
+  bodyDiv.appendChild(typeDiv);
+  bodyDiv.appendChild(detailDiv);
+
+  entry.appendChild(timeSpan);
+  entry.appendChild(bodyDiv);
 
   /* Newest on top */
   container.prepend(entry);
@@ -171,10 +185,22 @@ function renderSagas() {
     const shortId = saga.paymentId.slice(0, 12);
     const amountStr = saga.amount ? "$" + Number(saga.amount).toFixed(2) : "";
 
-    el.innerHTML =
-      '<span class="saga-id" title="' + saga.paymentId + '">' + shortId + "</span>" +
-      '<span class="saga-amount">' + amountStr + "</span>" +
-      '<span class="saga-badge ' + saga.state + '">' + saga.state + "</span>";
+    const idSpan = document.createElement("span");
+    idSpan.className = "saga-id";
+    idSpan.title = saga.paymentId;
+    idSpan.textContent = shortId;
+
+    const amountSpan = document.createElement("span");
+    amountSpan.className = "saga-amount";
+    amountSpan.textContent = amountStr;
+
+    const badgeSpan = document.createElement("span");
+    badgeSpan.className = "saga-badge " + saga.state;
+    badgeSpan.textContent = saga.state;
+
+    el.appendChild(idSpan);
+    el.appendChild(amountSpan);
+    el.appendChild(badgeSpan);
 
     container.appendChild(el);
   });

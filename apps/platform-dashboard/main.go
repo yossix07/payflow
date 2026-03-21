@@ -27,12 +27,17 @@ func triggerHandler(w http.ResponseWriter, r *http.Request) {
 		paymentURL = "http://payment-service:8080"
 	}
 
-	proxyReq, _ := http.NewRequest("POST", paymentURL+"/payments", r.Body)
+	proxyReq, err := http.NewRequest("POST", paymentURL+"/payments", r.Body)
+	if err != nil {
+		http.Error(w, "Invalid payment service URL", http.StatusInternalServerError)
+		return
+	}
 	proxyReq.Header.Set("Content-Type", "application/json")
 	if key := r.Header.Get("Idempotency-Key"); key != "" {
 		proxyReq.Header.Set("Idempotency-Key", key)
 	}
-	resp, err := http.DefaultClient.Do(proxyReq)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(proxyReq)
 	if err != nil {
 		http.Error(w, "Failed to reach payment service: "+err.Error(), http.StatusBadGateway)
 		return
@@ -50,7 +55,12 @@ func eventsHandler(w http.ResponseWriter, r *http.Request) {
 		notifURL = "http://notification-service:8080"
 	}
 
-	resp, err := http.Get(notifURL + "/events")
+	req, err := http.NewRequestWithContext(r.Context(), "GET", notifURL+"/events", nil)
+	if err != nil {
+		http.Error(w, "Invalid notification service URL", http.StatusInternalServerError)
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		http.Error(w, "Failed to reach notification service", http.StatusBadGateway)
 		return
