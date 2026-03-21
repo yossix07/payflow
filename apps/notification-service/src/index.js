@@ -16,6 +16,15 @@ app.get('/healthz', (req, res) => {
   });
 });
 
+// Readiness check endpoint
+app.get('/readyz', (req, res) => {
+  const { isShuttingDown } = require('./utils/shutdown');
+  if (isShuttingDown()) {
+    return res.status(503).json({ status: 'draining' });
+  }
+  res.json({ status: 'ready' });
+});
+
 // SSE endpoint for real-time payment events
 app.get('/events', (req, res) => {
   const accepted = addClient(res);

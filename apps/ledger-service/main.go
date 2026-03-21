@@ -72,6 +72,20 @@ func main() {
 		})
 	}).Methods("GET")
 
+	// Readiness check
+	r.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-ctx.Done():
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "draining"})
+			return
+		default:
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+	}).Methods("GET")
+
 	r.HandleFunc("/ledger", ledgerHandler.GetEntries).Methods("GET")
 	r.HandleFunc("/ledger/payment/{payment_id}", ledgerHandler.GetEntriesByPayment).Methods("GET")
 

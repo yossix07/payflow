@@ -16,6 +16,15 @@ app.get("/healthz", (req, res) => {
   });
 });
 
+// Readiness check endpoint
+app.get("/readyz", (req, res) => {
+  const { isShuttingDown } = require("./utils/shutdown");
+  if (isShuttingDown()) {
+    return res.status(503).json({ status: "draining" });
+  }
+  res.json({ status: "ready" });
+});
+
 const PORT = process.env.PORT || 8080;
 
 async function main() {

@@ -113,6 +113,20 @@ func main() {
 		})
 	}).Methods("GET")
 
+	// Readiness check
+	r.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-ctx.Done():
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "draining"})
+			return
+		default:
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+	}).Methods("GET")
+
 	// Wallet endpoints
 	r.HandleFunc("/wallets/{user_id}", walletHandler.GetWallet).Methods("GET")
 	r.HandleFunc("/wallets/{user_id}/credit", walletHandler.CreditWallet).Methods("POST")
