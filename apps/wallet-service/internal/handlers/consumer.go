@@ -1,0 +1,207 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/my-saas-platform/wallet-service/internal/events"
+	"github.com/my-saas-platform/wallet-service/internal/repository"
+	"github.com/my-saas-platform/wallet-service/pkg/outbox"
+	"github.com/my-saas-platform/wallet-service/pkg/queue"
+)
+
+type EventConsumer struct {
+	queue  queue.QueueClient
+	repo   repository.Repository
+	outbox outbox.Outbox
+}
+
+func NewEventConsumer(queue queue.QueueClient, repo repository.Repository, outbox outbox.Outbox) *EventConsumer {
+	return &EventConsumer{
+		queue:  queue,
+		repo:   repo,
+		outbox: outbox,
+	}
+}
+
+func (ec *EventConsumer) Start(ctx context.Context) {
+	log.Println("Starting event consumer...")
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Event consumer stopped")
+			return
+		default:
+			messages, err := ec.queue.ReceiveMessages(ctx)
+			if err != nil {
+				log.Printf("Error receiving messages: %v", err)
+				continue
+			}
+
+			for _, msg := range messages {
+				if err := ec.handleMessage(ctx, msg); err != nil {
+					log.Printf("Error handling message: %v", err)
+				} else {
+					ec.queue.DeleteMessage(ctx, msg.ReceiptHandle)
+				}
+			}
+		}
+	}
+}
+
+func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) error {
+	log.Printf("Received event: %s", msg.EventType)
+
+	switch msg.EventType {
+	case events.EventReserveFunds:
+		var event events.ReserveFundsEvent
+		if err := json.Unmarshal([]byte(msg.Body), &event); err != nil {
+			return err
+		}
+		return ec.handleReserveFunds(ctx, event)
+
+	case events.EventReleaseFunds:
+		var event events.ReleaseFundsEvent
+		if err := json.Unmarshal([]byte(msg.Body), &event); err != nil {
+			return err
+		}
+		return ec.handleReleaseFunds(ctx, event)
+
+	default:
+		log.Printf("Ignoring event type: %s", msg.EventType)
+	}
+
+	return nil
+}
+
+func (ec *EventConsumer) handleReserveFunds(ctx context.Context, event events.ReserveFundsEvent) error {
+	log.Printf("Reserving funds for payment %s: user %s, amount %.2f", event.PaymentID, event.UserID, event.Amount)
+
+	// Get wallet
+	wallet, err := ec.repo.GetWallet(ctx, event.UserID)
+	if err != nil {
+		return err
+	}
+
+	// Check if sufficient funds
+	if wallet.Balance < event.Amount {
+		log.Printf("Insufficient funds for user %s: balance %.2f, requested %.2f", event.UserID, wallet.Balance, event.Amount)
+		return ec.publishInsufficientFunds(ctx, event.PaymentID, event.UserID)
+	}
+
+	// Create reservation
+	reservation := &repository.Reservation{
+		ReservationID: uuid.New().String(),
+		PaymentID:     event.PaymentID,
+		UserID:        event.UserID,
+		Amount:        event.Amount,
+		Status:        "ACTIVE",
+		CreatedAt:     time.Now(),
+		ExpiresAt:     time.Now().Add(24 * time.Hour).Unix(), // 24h TTL
+	}
+
+	if err := ec.repo.CreateReservation(ctx, reservation); err != nil {
+		return err
+	}
+
+	// Deduct balance
+	wallet.Balance -= event.Amount
+	wallet.UpdatedAt = time.Now()
+
+	if err := ec.repo.UpdateWallet(ctx, wallet); err != nil {
+		return err
+	}
+
+	log.Printf("Funds reserved: reservation %s", reservation.ReservationID)
+
+	// Publish FundsReserved event
+	return ec.publishFundsReserved(ctx, event.PaymentID)
+}
+
+func (ec *EventConsumer) handleReleaseFunds(ctx context.Context, event events.ReleaseFundsEvent) error {
+	log.Printf("Releasing funds for payment %s", event.PaymentID)
+
+	// Get reservation
+	reservation, err := ec.repo.GetReservationByPayment(ctx, event.PaymentID)
+	if err != nil {
+		log.Printf("Reservation not found: %v", err)
+		return nil // Already released or doesn't exist
+	}
+
+	if reservation.Status != "ACTIVE" {
+		log.Printf("Reservation %s already released", reservation.ReservationID)
+		return nil
+	}
+
+	// Get wallet
+	wallet, err := ec.repo.GetWallet(ctx, reservation.UserID)
+	if err != nil {
+		return err
+	}
+
+	// Return balance
+	wallet.Balance += reservation.Amount
+	wallet.UpdatedAt = time.Now()
+
+	if err := ec.repo.UpdateWallet(ctx, wallet); err != nil {
+		return err
+	}
+
+	// Update reservation
+	reservation.Status = "RELEASED"
+	if err := ec.repo.UpdateReservation(ctx, reservation); err != nil {
+		return err
+	}
+
+	log.Printf("Funds released: reservation %s", reservation.ReservationID)
+
+	// Publish FundsReleased event
+	return ec.publishFundsReleased(ctx, event.PaymentID)
+}
+
+func (ec *EventConsumer) publishFundsReserved(ctx context.Context, paymentID string) error {
+	event := events.FundsReservedEvent{
+		PaymentID: paymentID,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	return ec.outbox.WriteMessage(ctx, events.EventFundsReserved, string(payload))
+}
+
+func (ec *EventConsumer) publishInsufficientFunds(ctx context.Context, paymentID, userID string) error {
+	event := events.InsufficientFundsEvent{
+		PaymentID: paymentID,
+		UserID:    userID,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	return ec.outbox.WriteMessage(ctx, events.EventInsufficientFunds, string(payload))
+}
+
+func (ec *EventConsumer) publishFundsReleased(ctx context.Context, paymentID string) error {
+	event := events.FundsReleasedEvent{
+		PaymentID: paymentID,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	return ec.outbox.WriteMessage(ctx, events.EventFundsReleased, string(payload))
+}
