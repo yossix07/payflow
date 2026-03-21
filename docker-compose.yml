@@ -1,0 +1,129 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566" # LocalStack Gateway
+      - "4510-4559:4510-4559" # External services port range
+    environment:
+      - SERVICES=sqs,dynamodb
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-aws.sh"
+    networks:
+      - saas-network
+
+  payment-service:
+    build:
+      context: ./apps/payment-service
+      dockerfile: Dockerfile
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - QUEUE_URL=http://localstack:4566/000000000000/payment-queue
+      - PAYMENTS_TABLE=payments
+      - IDEMPOTENCY_TABLE=idempotency
+      - OUTBOX_TABLE=payment-outbox
+    depends_on:
+      - localstack
+    ports:
+      - "8081:8080"
+    networks:
+      - saas-network
+
+  ledger-service:
+    build:
+      context: ./apps/ledger-service
+      dockerfile: Dockerfile
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - QUEUE_URL=http://localstack:4566/000000000000/ledger-queue
+      - LEDGER_TABLE=ledger
+    depends_on:
+      - localstack
+    ports:
+      - "8082:8080"
+    networks:
+      - saas-network
+
+  wallet-service:
+    build:
+      context: ./apps/wallet-service
+      dockerfile: Dockerfile
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - QUEUE_URL=http://localstack:4566/000000000000/wallet-queue
+      - WALLETS_TABLE=wallets
+      - RESERVATIONS_TABLE=reservations
+      - OUTBOX_TABLE=wallet-outbox
+    depends_on:
+      - localstack
+    ports:
+      - "8083:8080"
+    networks:
+      - saas-network
+
+  gateway-service:
+    build:
+      context: ./apps/gateway-service
+      dockerfile: Dockerfile
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - QUEUE_URL=http://localstack:4566/000000000000/gateway-queue
+      - TRANSACTIONS_TABLE=transactions
+      - OUTBOX_TABLE=gateway-outbox
+      - PORT=8080
+    depends_on:
+      - localstack
+    ports:
+      - "8084:8080"
+    networks:
+      - saas-network
+
+  notification-service:
+    build:
+      context: ./apps/notification-service
+      dockerfile: Dockerfile
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - PORT=8080
+    depends_on:
+      - localstack
+    ports:
+      - "8085:8080"
+    networks:
+      - saas-network
+
+  platform-dashboard:
+    build:
+      context: ./apps/platform-dashboard
+      dockerfile: Dockerfile
+    environment:
+      - PAYMENT_SERVICE_URL=http://payment-service:8080
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8080
+    ports:
+      - "3000:8080"
+    depends_on:
+      - payment-service
+      - notification-service
+    networks:
+      - saas-network
+
+networks:
+  saas-network:
+    driver: bridge
