@@ -65,7 +65,7 @@ function formatNotification(eventType, payload) {
 function getHumanReadableMessage(eventType, payload) {
   const paymentId = payload.payment_id || 'N/A';
   const userId = payload.user_id || 'N/A';
-  const amount = payload.amount ? `$${payload.amount.toFixed(2)}` : '';
+  const amount = typeof payload.amount === 'number' ? `$${payload.amount.toFixed(2)}` : '';
 
   switch (eventType) {
     case 'PaymentStarted':
