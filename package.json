@@ -1,0 +1,22 @@
+{
+  "name": "saas-payment-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Distributed SaaS payment processing platform with event-driven microservices",
+  "scripts": {
+    "env:up": "node scripts/env-up.js",
+    "env:down": "docker compose down -v",
+    "env:status": "node scripts/env-status.js",
+    "test:unit": "node scripts/test-unit.js",
+    "test:integration": "node scripts/test-integration.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "demo": "npm run env:up && node scripts/open-browser.js http://localhost:3000",
+    "demo:trigger": "node scripts/demo-flow.js",
+    "infra:up": "node scripts/infra-up.js",
+    "infra:down": "cd envs/dev && terraform destroy -auto-approve",
+    "deploy": "npm run test && node scripts/deploy.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
