@@ -3,9 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 	"github.com/my-saas-platform/wallet-service/internal/events"
 	"github.com/my-saas-platform/wallet-service/internal/repository"
@@ -96,45 +100,52 @@ func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) e
 func (ec *EventConsumer) handleReserveFunds(ctx context.Context, event events.ReserveFundsEvent) error {
 	log.Printf("Reserving funds for payment %s: user %s, amount %.2f", event.PaymentID, event.UserID, event.Amount)
 
-	// Get wallet
-	wallet, err := ec.repo.GetWallet(ctx, event.UserID)
-	if err != nil {
-		return err
+	const maxRetries = 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		wallet, err := ec.repo.GetWallet(ctx, event.UserID)
+		if err != nil {
+			return err
+		}
+
+		if wallet.Balance < event.Amount {
+			log.Printf("Insufficient funds for user %s: balance %.2f, requested %.2f", event.UserID, wallet.Balance, event.Amount)
+			return ec.publishInsufficientFunds(ctx, event.PaymentID, event.UserID)
+		}
+
+		// Create reservation (idempotent — conditional put ignores duplicates)
+		reservation := &repository.Reservation{
+			ReservationID: uuid.NewSHA1(uuid.NameSpaceDNS, []byte(event.PaymentID)).String(),
+			PaymentID:     event.PaymentID,
+			UserID:        event.UserID,
+			Amount:        event.Amount,
+			Status:        "ACTIVE",
+			CreatedAt:     time.Now(),
+			ExpiresAt:     time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		if err := ec.repo.CreateReservation(ctx, reservation); err != nil {
+			return err
+		}
+
+		// Deduct balance with optimistic lock
+		wallet.Balance -= event.Amount
+		wallet.UpdatedAt = time.Now()
+
+		if err := ec.repo.UpdateWallet(ctx, wallet); err != nil {
+			var condErr *types.ConditionalCheckFailedException
+			if errors.As(err, &condErr) && attempt < maxRetries {
+				jitter := time.Duration(rand.Intn(50*(attempt+1))) * time.Millisecond
+				time.Sleep(50*time.Millisecond + jitter)
+				continue
+			}
+			return err
+		}
+
+		log.Printf("Funds reserved: reservation %s", reservation.ReservationID)
+		return ec.publishFundsReserved(ctx, event.PaymentID)
 	}
 
-	// Check if sufficient funds
-	if wallet.Balance < event.Amount {
-		log.Printf("Insufficient funds for user %s: balance %.2f, requested %.2f", event.UserID, wallet.Balance, event.Amount)
-		return ec.publishInsufficientFunds(ctx, event.PaymentID, event.UserID)
-	}
-
-	// Create reservation
-	reservation := &repository.Reservation{
-		ReservationID: uuid.New().String(),
-		PaymentID:     event.PaymentID,
-		UserID:        event.UserID,
-		Amount:        event.Amount,
-		Status:        "ACTIVE",
-		CreatedAt:     time.Now(),
-		ExpiresAt:     time.Now().Add(24 * time.Hour).Unix(), // 24h TTL
-	}
-
-	if err := ec.repo.CreateReservation(ctx, reservation); err != nil {
-		return err
-	}
-
-	// Deduct balance
-	wallet.Balance -= event.Amount
-	wallet.UpdatedAt = time.Now()
-
-	if err := ec.repo.UpdateWallet(ctx, wallet); err != nil {
-		return err
-	}
-
-	log.Printf("Funds reserved: reservation %s", reservation.ReservationID)
-
-	// Publish FundsReserved event
-	return ec.publishFundsReserved(ctx, event.PaymentID)
+	return fmt.Errorf("optimistic lock failed after retries for payment %s", event.PaymentID)
 }
 
 func (ec *EventConsumer) handleReleaseFunds(ctx context.Context, event events.ReleaseFundsEvent) error {
@@ -152,30 +163,40 @@ func (ec *EventConsumer) handleReleaseFunds(ctx context.Context, event events.Re
 		return nil
 	}
 
-	// Get wallet
-	wallet, err := ec.repo.GetWallet(ctx, reservation.UserID)
-	if err != nil {
-		return err
+	const maxRetries = 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		wallet, err := ec.repo.GetWallet(ctx, reservation.UserID)
+		if err != nil {
+			return err
+		}
+
+		// Return balance with optimistic lock
+		wallet.Balance += reservation.Amount
+		wallet.UpdatedAt = time.Now()
+
+		if err := ec.repo.UpdateWallet(ctx, wallet); err != nil {
+			var condErr *types.ConditionalCheckFailedException
+			if errors.As(err, &condErr) && attempt < maxRetries {
+				jitter := time.Duration(rand.Intn(50*(attempt+1))) * time.Millisecond
+				time.Sleep(50*time.Millisecond + jitter)
+				continue
+			}
+			return err
+		}
+
+		// Update reservation
+		reservation.Status = "RELEASED"
+		if err := ec.repo.UpdateReservation(ctx, reservation); err != nil {
+			return err
+		}
+
+		log.Printf("Funds released: reservation %s", reservation.ReservationID)
+
+		// Publish FundsReleased event
+		return ec.publishFundsReleased(ctx, event.PaymentID)
 	}
 
-	// Return balance
-	wallet.Balance += reservation.Amount
-	wallet.UpdatedAt = time.Now()
-
-	if err := ec.repo.UpdateWallet(ctx, wallet); err != nil {
-		return err
-	}
-
-	// Update reservation
-	reservation.Status = "RELEASED"
-	if err := ec.repo.UpdateReservation(ctx, reservation); err != nil {
-		return err
-	}
-
-	log.Printf("Funds released: reservation %s", reservation.ReservationID)
-
-	// Publish FundsReleased event
-	return ec.publishFundsReleased(ctx, event.PaymentID)
+	return fmt.Errorf("optimistic lock failed after retries for payment %s", event.PaymentID)
 }
 
 func (ec *EventConsumer) publishFundsReserved(ctx context.Context, paymentID string) error {

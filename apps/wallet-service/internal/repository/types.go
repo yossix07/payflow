@@ -9,6 +9,7 @@ import (
 type Wallet struct {
 	UserID    string    `dynamodbav:"user_id"`
 	Balance   float64   `dynamodbav:"balance"`
+	Version   int       `dynamodbav:"version"`
 	CreatedAt time.Time `dynamodbav:"created_at"`
 	UpdatedAt time.Time `dynamodbav:"updated_at"`
 }

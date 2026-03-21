@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -79,10 +80,13 @@ func (r *DynamoDBRepository) UpdateWallet(ctx context.Context, wallet *Wallet) e
 		Key: map[string]types.AttributeValue{
 			"user_id": &types.AttributeValueMemberS{Value: wallet.UserID},
 		},
-		UpdateExpression: aws.String("SET balance = :balance, updated_at = :updated_at"),
+		UpdateExpression:    aws.String("SET balance = :balance, updated_at = :updated_at, version = :new_version"),
+		ConditionExpression: aws.String("attribute_not_exists(version) OR version = :expected_version"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":balance":    &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", wallet.Balance)},
-			":updated_at": &types.AttributeValueMemberS{Value: wallet.UpdatedAt.Format(time.RFC3339)},
+			":balance":          &types.AttributeValueMemberN{Value: fmt.Sprintf("%f", wallet.Balance)},
+			":updated_at":       &types.AttributeValueMemberS{Value: wallet.UpdatedAt.Format(time.RFC3339)},
+			":new_version":      &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", wallet.Version+1)},
+			":expected_version": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", wallet.Version)},
 		},
 	})
 
@@ -96,9 +100,16 @@ func (r *DynamoDBRepository) CreateReservation(ctx context.Context, reservation 
 	}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(r.reservationsTable),
-		Item:      av,
+		TableName:           aws.String(r.reservationsTable),
+		Item:                av,
+		ConditionExpression: aws.String("attribute_not_exists(reservation_id)"),
 	})
+
+	// If reservation already exists (from a prior retry), that's OK
+	var condErr *types.ConditionalCheckFailedException
+	if errors.As(err, &condErr) {
+		return nil
+	}
 
 	return err
 }

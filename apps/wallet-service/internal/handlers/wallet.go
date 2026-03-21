@@ -1,9 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"math/rand"
 	"net/http"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
 	"github.com/my-saas-platform/wallet-service/internal/repository"
 	"github.com/my-saas-platform/wallet-service/pkg/outbox"
@@ -49,6 +55,35 @@ type CreditRequest struct {
 	Amount float64 `json:"amount"`
 }
 
+// updateWalletWithRetry wraps a read-modify-write cycle with optimistic locking retry.
+func updateWalletWithRetry(ctx context.Context, repo repository.Repository, userID string, modifyFn func(*repository.Wallet) error) (*repository.Wallet, error) {
+	const maxRetries = 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		wallet, err := repo.GetWallet(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := modifyFn(wallet); err != nil {
+			return nil, err
+		}
+
+		wallet.UpdatedAt = time.Now()
+		if err := repo.UpdateWallet(ctx, wallet); err != nil {
+			var condErr *types.ConditionalCheckFailedException
+			if errors.As(err, &condErr) && attempt < maxRetries {
+				jitter := time.Duration(rand.Intn(50*(attempt+1))) * time.Millisecond
+				time.Sleep(50*time.Millisecond + jitter)
+				continue
+			}
+			return nil, err
+		}
+
+		return wallet, nil
+	}
+	return nil, fmt.Errorf("optimistic lock failed after %d retries for user %s", maxRetries, userID)
+}
+
 func (h *WalletHandler) CreditWallet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
@@ -64,16 +99,11 @@ func (h *WalletHandler) CreditWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wallet, err := h.repo.GetWallet(r.Context(), userID)
+	wallet, err := updateWalletWithRetry(r.Context(), h.repo, userID, func(w *repository.Wallet) error {
+		w.Balance += req.Amount
+		return nil
+	})
 	if err != nil {
-		http.Error(w, "Failed to get wallet", http.StatusInternalServerError)
-		return
-	}
-
-	// Update balance
-	wallet.Balance += req.Amount
-
-	if err := h.repo.UpdateWallet(r.Context(), wallet); err != nil {
 		http.Error(w, "Failed to update wallet", http.StatusInternalServerError)
 		return
 	}
