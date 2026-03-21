@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -40,7 +41,8 @@ func main() {
 		log.Fatal("Missing required environment variables")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Initialize AWS clients
 	queueClient, err := queue.NewSQSClient(ctx, awsRegion, queueURL)
@@ -85,13 +87,23 @@ func main() {
 		broadcastQueues = []queue.QueueClient{queueClient}
 	}
 
+	var wg sync.WaitGroup
+
 	// Start outbox worker (background goroutine)
 	outboxWorker := outbox.NewWorker(outboxRepo, broadcastQueues)
-	go outboxWorker.Start(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		outboxWorker.Start(ctx)
+	}()
 
 	// Start event consumer (background goroutine)
 	eventConsumer := handlers.NewEventConsumer(queueClient, sagaOrchestrator)
-	go eventConsumer.Start(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		eventConsumer.Start(ctx)
+	}()
 
 	// HTTP Router
 	r := mux.NewRouter()
@@ -133,8 +145,23 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down server...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	cancel()
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Println("Background workers stopped cleanly")
+	case <-time.After(10 * time.Second):
+		log.Println("Timeout waiting for background workers")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)

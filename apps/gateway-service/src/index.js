@@ -1,6 +1,7 @@
 const express = require("express");
 const { startEventConsumer } = require("./consumers/eventConsumer");
 const { startOutboxWorker } = require("./workers/outboxWorker");
+const { shutdown } = require("./utils/shutdown");
 
 const app = express();
 app.use(express.json());
@@ -46,12 +47,14 @@ async function main() {
 // Graceful shutdown
 process.on("SIGTERM", () => {
   console.log("SIGTERM received, shutting down gracefully...");
-  process.exit(0);
+  shutdown();
+  setTimeout(() => process.exit(0), 10000);
 });
 
 process.on("SIGINT", () => {
   console.log("SIGINT received, shutting down gracefully...");
-  process.exit(0);
+  shutdown();
+  setTimeout(() => process.exit(0), 10000);
 });
 
 main().catch((err) => {

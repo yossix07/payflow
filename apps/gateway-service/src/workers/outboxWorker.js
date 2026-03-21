@@ -1,5 +1,6 @@
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { getUnpublishedMessages, markAsPublished, markAsFailed, incrementRetryCount } = require('../repository/outboxRepository');
+const { isShuttingDown } = require('../utils/shutdown');
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.QUEUE_URL;
@@ -14,7 +15,7 @@ async function startOutboxWorker() {
   console.log('Starting outbox worker...');
   let currentInterval = BASE_INTERVAL;
 
-  while (true) {
+  while (!isShuttingDown()) {
     try {
       const count = await processOutbox();
       if (count >= 10) {

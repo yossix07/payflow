@@ -1,6 +1,7 @@
 const { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 const { processPayment } = require('../services/paymentProcessor');
 const { claimPayment } = require('../repository/idempotencyRepository');
+const { isShuttingDown } = require('../utils/shutdown');
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.QUEUE_URL;
@@ -8,7 +9,7 @@ const QUEUE_URL = process.env.QUEUE_URL;
 async function startEventConsumer() {
   console.log('Starting event consumer...');
 
-  while (true) {
+  while (!isShuttingDown()) {
     try {
       const messages = await receiveMessages();
       
