@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/my-saas-platform/ledger-service/internal/repository"
 	"github.com/my-saas-platform/ledger-service/pkg/queue"
@@ -30,18 +31,33 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 			log.Println("Event consumer stopped")
 			return
 		default:
-			messages, err := ec.queue.ReceiveMessages(ctx)
-			if err != nil {
-				log.Printf("Error receiving messages: %v", err)
-				continue
-			}
+		}
 
-			for _, msg := range messages {
-				if err := ec.handleMessage(ctx, msg); err != nil {
-					log.Printf("Error handling message: %v", err)
-				} else {
-					ec.queue.DeleteMessage(ctx, msg.ReceiptHandle)
-				}
+		messages, err := ec.queue.ReceiveMessages(ctx)
+		if err != nil {
+			log.Printf("Error receiving messages: %v", err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Second):
+			}
+			continue
+		}
+
+		for _, msg := range messages {
+			if err := ec.handleMessage(ctx, msg); err != nil {
+				log.Printf("Error handling message: %v", err)
+			} else {
+				ec.queue.DeleteMessage(ctx, msg.ReceiptHandle)
+			}
+		}
+
+		// Backoff if no messages received (SQS long-poll already waits up to 20s)
+		if len(messages) == 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Second):
 			}
 		}
 	}
