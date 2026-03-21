@@ -23,6 +23,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - QUEUE_URL=http://localstack:4566/000000000000/payment-queue
+      - BROADCAST_QUEUE_URLS=http://localstack:4566/000000000000/payment-queue,http://localstack:4566/000000000000/wallet-queue,http://localstack:4566/000000000000/gateway-queue,http://localstack:4566/000000000000/ledger-queue,http://localstack:4566/000000000000/notification-queue
       - PAYMENTS_TABLE=payments
       - IDEMPOTENCY_TABLE=idempotency
       - OUTBOX_TABLE=payment-outbox
@@ -61,6 +62,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - QUEUE_URL=http://localstack:4566/000000000000/wallet-queue
+      - BROADCAST_QUEUE_URLS=http://localstack:4566/000000000000/payment-queue,http://localstack:4566/000000000000/wallet-queue,http://localstack:4566/000000000000/gateway-queue,http://localstack:4566/000000000000/ledger-queue,http://localstack:4566/000000000000/notification-queue
       - WALLETS_TABLE=wallets
       - RESERVATIONS_TABLE=reservations
       - OUTBOX_TABLE=wallet-outbox
@@ -81,6 +83,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - QUEUE_URL=http://localstack:4566/000000000000/gateway-queue
+      - BROADCAST_QUEUE_URLS=http://localstack:4566/000000000000/payment-queue,http://localstack:4566/000000000000/wallet-queue,http://localstack:4566/000000000000/gateway-queue,http://localstack:4566/000000000000/ledger-queue,http://localstack:4566/000000000000/notification-queue
       - TRANSACTIONS_TABLE=transactions
       - OUTBOX_TABLE=gateway-outbox
       - PORT=8080
