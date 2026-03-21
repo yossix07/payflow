@@ -37,3 +37,13 @@ terraform.rc
 # Kubernetes
 kubeconfig
 *.kube
+
+# Node.js
+node_modules/
+*.log
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
