@@ -29,6 +29,8 @@ spec:
               value: "dev-gateway-transactions"
             - name: OUTBOX_TABLE
               value: "dev-gateway-outbox"
+            - name: IDEMPOTENCY_TABLE
+              value: "dev-gateway-idempotency"
             - name: SUCCESS_RATE
               value: "0.8"
           resources:

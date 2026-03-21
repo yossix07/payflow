@@ -1,5 +1,6 @@
 const { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 const { processPayment } = require('../services/paymentProcessor');
+const { claimPayment } = require('../repository/idempotencyRepository');
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.QUEUE_URL;
@@ -45,6 +46,12 @@ async function handleMessage(message) {
   console.log(`Received event: ${eventType}`);
 
   if (eventType === 'ProcessPayment') {
+    // Idempotency check: skip if already processed
+    const claimed = await claimPayment(payload.payment_id);
+    if (!claimed) {
+      console.log(`Duplicate ProcessPayment for ${payload.payment_id}, skipping`);
+      return;
+    }
     await processPayment(payload);
   } else {
     console.log(`Ignoring event type: ${eventType}`);

@@ -24,6 +24,7 @@ async function main() {
     "QUEUE_URL",
     "TRANSACTIONS_TABLE",
     "OUTBOX_TABLE",
+    "IDEMPOTENCY_TABLE",
     "AWS_REGION",
   ];
   for (const envVar of required) {

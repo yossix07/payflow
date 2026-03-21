@@ -274,6 +274,29 @@ resource "aws_dynamodb_table" "gateway_outbox" {
   }
 }
 
+resource "aws_dynamodb_table" "gateway_idempotency" {
+  name         = "${var.env}-gateway-idempotency"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "payment_id"
+
+  attribute {
+    name = "payment_id"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  tags = {
+    Name        = "${var.env}-gateway-idempotency"
+    Environment = var.env
+    ManagedBy   = "Terraform"
+    Service     = "gateway-service"
+  }
+}
+
 # -----------------------------------------------------------------------------
 # DynamoDB: Ledger Service Tables
 # -----------------------------------------------------------------------------
@@ -393,6 +416,7 @@ resource "aws_iam_policy" "messaging_access" {
           "${aws_dynamodb_table.gateway_transactions.arn}/index/*",
           aws_dynamodb_table.gateway_outbox.arn,
           "${aws_dynamodb_table.gateway_outbox.arn}/index/*",
+          aws_dynamodb_table.gateway_idempotency.arn,
           aws_dynamodb_table.ledger.arn,
           aws_dynamodb_table.ledger_outbox.arn,
           "${aws_dynamodb_table.ledger_outbox.arn}/index/*"
