@@ -47,7 +47,7 @@ async function handleMessage(message) {
   // Format notification based on event type
   const notification = formatNotification(eventType, payload);
   
-  // Broadcast to all connected WebSocket clients
+  // Broadcast to all connected SSE clients
   broadcastEvent(notification);
 }
 
