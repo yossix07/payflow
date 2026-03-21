@@ -76,9 +76,9 @@ func (r *DynamoDBRepository) GetEntries(ctx context.Context, limit int) ([]*Ledg
 }
 
 func (r *DynamoDBRepository) GetEntriesByPayment(ctx context.Context, paymentID string) ([]*LedgerEntry, error) {
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.ledgerTable),
-		FilterExpression: aws.String("payment_id = :payment_id"),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.ledgerTable),
+		KeyConditionExpression: aws.String("payment_id = :payment_id"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":payment_id": &types.AttributeValueMemberS{Value: paymentID},
 		},
