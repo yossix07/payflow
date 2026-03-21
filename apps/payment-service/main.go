@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/my-saas-platform/payment-service/internal/handlers"
+	"github.com/my-saas-platform/payment-service/internal/model"
 	"github.com/my-saas-platform/payment-service/internal/repository"
 	"github.com/my-saas-platform/payment-service/internal/saga"
 	"github.com/my-saas-platform/payment-service/pkg/idempotency"
@@ -145,6 +146,39 @@ func main() {
 	// Payment endpoints
 	r.Handle("/payments", idempotencyMW.Wrap(http.HandlerFunc(paymentHandler.CreatePayment))).Methods("POST")
 	r.HandleFunc("/payments/{id}", paymentHandler.GetPayment).Methods("GET")
+
+	// Metrics endpoint
+	r.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		// Count unpublished outbox messages
+		unpublished, err := outboxRepo.GetUnpublishedMessages(ctx)
+		outboxDepth := 0
+		if err == nil {
+			outboxDepth = len(unpublished)
+		}
+
+		// Count stuck sagas
+		threshold := time.Now().Add(-60 * time.Second)
+		stuckCount := 0
+		for _, state := range []model.PaymentState{model.StatePending, model.StateProcessing, model.StateFundsReserved} {
+			stuck, err := repo.GetStuckPayments(ctx, state, threshold)
+			if err == nil {
+				stuckCount += len(stuck)
+			}
+		}
+
+		metrics := map[string]interface{}{
+			"outbox_queue_depth":       outboxDepth,
+			"stuck_sagas":              stuckCount,
+			"messages_published_total": outboxWorker.PublishedCount(),
+			"messages_failed_total":    outboxWorker.FailedCount(),
+			"timestamp":                time.Now().Format(time.RFC3339),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(metrics)
+	}).Methods("GET")
 
 	// HTTP Server
 	srv := &http.Server{

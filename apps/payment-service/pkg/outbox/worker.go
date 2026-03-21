@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/my-saas-platform/payment-service/pkg/queue"
@@ -14,9 +15,14 @@ const maxOutboxRetries = 5
 
 // Worker polls the outbox and publishes messages to all queues
 type Worker struct {
-	outbox Outbox
-	queues []queue.QueueClient
+	outbox         Outbox
+	queues         []queue.QueueClient
+	publishedCount atomic.Int64
+	failedCount    atomic.Int64
 }
+
+func (w *Worker) PublishedCount() int64 { return w.publishedCount.Load() }
+func (w *Worker) FailedCount() int64    { return w.failedCount.Load() }
 
 func NewWorker(outbox Outbox, queues []queue.QueueClient) *Worker {
 	return &Worker{
@@ -98,6 +104,7 @@ func (w *Worker) processOutbox(ctx context.Context) (int, error) {
 				slog.Error("Failed to mark message as published", "message_id", msg.MessageID, "error", err)
 			} else {
 				slog.Info("Published event", "event_type", msg.EventType, "message_id", msg.MessageID)
+				w.publishedCount.Add(1)
 			}
 		} else {
 			if err := w.outbox.IncrementRetryCount(ctx, msg.MessageID); err != nil {
@@ -108,6 +115,7 @@ func (w *Worker) processOutbox(ctx context.Context) (int, error) {
 				if err := w.outbox.MarkAsFailed(ctx, msg.MessageID); err != nil {
 					slog.Error("Failed to mark message as failed", "message_id", msg.MessageID, "error", err)
 				}
+				w.failedCount.Add(1)
 			}
 		}
 	}
