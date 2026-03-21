@@ -105,6 +105,14 @@ func main() {
 		eventConsumer.Start(ctx)
 	}()
 
+	// Start timeout scanner (background goroutine)
+	timeoutScanner := saga.NewTimeoutScanner(repo, outboxRepo)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		timeoutScanner.Start(ctx)
+	}()
+
 	// HTTP Router
 	r := mux.NewRouter()
 

@@ -70,6 +70,51 @@ func (r *DynamoDBRepository) GetPayment(ctx context.Context, paymentID string) (
 	return &payment, nil
 }
 
+func (r *DynamoDBRepository) GetStuckPayments(ctx context.Context, state model.PaymentState, olderThan time.Time) ([]*model.Payment, error) {
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.paymentsTable),
+		IndexName:              aws.String("state-updated-index"),
+		KeyConditionExpression: aws.String("#state = :state AND updated_at < :threshold"),
+		ExpressionAttributeNames: map[string]string{
+			"#state": "state",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":state":     &types.AttributeValueMemberS{Value: string(state)},
+			":threshold": &types.AttributeValueMemberS{Value: olderThan.Format(time.RFC3339)},
+		},
+		Limit: aws.Int32(25),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var payments []*model.Payment
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &payments); err != nil {
+		return nil, err
+	}
+	return payments, nil
+}
+
+func (r *DynamoDBRepository) ConditionalUpdateState(ctx context.Context, paymentID string, expectedState, newState model.PaymentState) error {
+	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.paymentsTable),
+		Key: map[string]types.AttributeValue{
+			"payment_id": &types.AttributeValueMemberS{Value: paymentID},
+		},
+		UpdateExpression:    aws.String("SET #state = :new_state, updated_at = :now"),
+		ConditionExpression: aws.String("#state = :expected_state"),
+		ExpressionAttributeNames: map[string]string{
+			"#state": "state",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":new_state":      &types.AttributeValueMemberS{Value: string(newState)},
+			":expected_state": &types.AttributeValueMemberS{Value: string(expectedState)},
+			":now":            &types.AttributeValueMemberS{Value: time.Now().Format(time.RFC3339)},
+		},
+	})
+	return err
+}
+
 type IdempotencyRecord struct {
 	Key        string `dynamodbav:"idempotency_key"`
 	Response   string `dynamodbav:"response"`

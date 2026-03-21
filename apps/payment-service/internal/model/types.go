@@ -15,6 +15,7 @@ const (
 	StateFailed        PaymentState = "FAILED"
 	StateCompensating  PaymentState = "COMPENSATING"
 	StateCancelled     PaymentState = "CANCELLED"
+	StateTimedOut      PaymentState = "TIMED_OUT"
 )
 
 // Payment represents a payment saga instance

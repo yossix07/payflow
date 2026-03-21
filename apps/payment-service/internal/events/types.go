@@ -11,6 +11,7 @@ const (
 	EventPaymentFailed     = "PaymentFailed"
 	EventSendNotification  = "SendNotification"
 	EventRecordTransaction = "RecordTransaction"
+	EventReleaseFunds      = "ReleaseFunds"
 )
 
 // Event structures
@@ -55,6 +56,11 @@ type PaymentSucceededEvent struct {
 type PaymentFailedEvent struct {
 	PaymentID string `json:"payment_id"`
 	Reason    string `json:"reason"`
+	Timestamp string `json:"timestamp"`
+}
+
+type ReleaseFundsEvent struct {
+	PaymentID string `json:"payment_id"`
 	Timestamp string `json:"timestamp"`
 }
 

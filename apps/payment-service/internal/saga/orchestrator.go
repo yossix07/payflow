@@ -155,6 +155,11 @@ func (o *Orchestrator) HandlePaymentSucceeded(ctx context.Context, paymentID str
 		return err
 	}
 
+	if payment.State == model.StateTimedOut {
+		log.Printf("Ignoring late PaymentSucceeded for timed-out payment %s", paymentID)
+		return nil
+	}
+
 	payment.State = model.StateCompleted
 	payment.UpdatedAt = time.Now()
 	payment.Steps = append(payment.Steps, model.SagaStep{
@@ -177,6 +182,11 @@ func (o *Orchestrator) HandlePaymentFailed(ctx context.Context, paymentID, reaso
 	payment, err := o.repo.GetPayment(ctx, paymentID)
 	if err != nil {
 		return err
+	}
+
+	if payment.State == model.StateTimedOut {
+		log.Printf("Ignoring late PaymentFailed for timed-out payment %s", paymentID)
+		return nil
 	}
 
 	payment.State = model.StateFailed

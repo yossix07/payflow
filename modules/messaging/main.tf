@@ -57,6 +57,23 @@ resource "aws_dynamodb_table" "payments" {
     type = "S"
   }
 
+  attribute {
+    name = "state"
+    type = "S"
+  }
+
+  attribute {
+    name = "updated_at"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "state-updated-index"
+    hash_key        = "state"
+    range_key       = "updated_at"
+    projection_type = "ALL"
+  }
+
   # TTL for automatic cleanup of old completed payments (optional)
   ttl {
     attribute_name = "expires_at"
