@@ -1,3 +1,11 @@
 go 1.18
 
 use ./apps/platform-dashboard
+
+use ./apps/payment-service
+
+use ./apps/wallet-service
+
+use ./apps/ledger-service
+
+use ./tests/integration
