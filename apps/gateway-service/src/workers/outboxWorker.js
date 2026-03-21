@@ -1,5 +1,5 @@
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
-const { getUnpublishedMessages, markAsPublished } = require('../repository/outboxRepository');
+const { getUnpublishedMessages, markAsPublished, markAsFailed, incrementRetryCount } = require('../repository/outboxRepository');
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.QUEUE_URL;
@@ -7,6 +7,7 @@ const BROADCAST_QUEUE_URLS = process.env.BROADCAST_QUEUE_URLS
   ? process.env.BROADCAST_QUEUE_URLS.split(',').map(u => u.trim()).filter(Boolean)
   : [QUEUE_URL];
 const POLL_INTERVAL = 100; // 100ms
+const MAX_OUTBOX_RETRIES = 5;
 
 async function startOutboxWorker() {
   console.log('Starting outbox worker...');
@@ -33,22 +34,52 @@ async function processOutbox() {
         payload: JSON.parse(msg.payload),
       };
 
-      // Broadcast to all queues
+      // Broadcast to all queues, tracking per-queue success
+      let allSent = true;
       for (const queueUrl of BROADCAST_QUEUE_URLS) {
-        const command = new SendMessageCommand({
-          QueueUrl: queueUrl,
-          MessageBody: JSON.stringify(wrapper),
-        });
-        await sqsClient.send(command);
+        try {
+          await sendWithRetry(queueUrl, JSON.stringify(wrapper));
+        } catch (err) {
+          console.error(`Failed to publish message ${msg.message_id} to queue ${queueUrl} after retries:`, err);
+          allSent = false;
+        }
       }
 
-      // Mark as published
-      await markAsPublished(msg.message_id);
-      console.log(`Published event: ${msg.event_type} (${msg.message_id})`);
+      if (allSent) {
+        await markAsPublished(msg.message_id);
+        console.log(`Published event: ${msg.event_type} (${msg.message_id})`);
+      } else {
+        await incrementRetryCount(msg.message_id);
+        const currentRetries = (msg.retry_count || 0) + 1;
+        if (currentRetries >= MAX_OUTBOX_RETRIES) {
+          console.error(`Marking message ${msg.message_id} as failed after ${currentRetries} retries`);
+          await markAsFailed(msg.message_id);
+        }
+      }
     } catch (error) {
-      console.error(`Failed to publish message ${msg.message_id}:`, error);
+      console.error(`Failed to process message ${msg.message_id}:`, error);
     }
   }
+}
+
+async function sendWithRetry(queueUrl, messageBody) {
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await sleep(attempt * 500);
+    }
+    try {
+      const command = new SendMessageCommand({
+        QueueUrl: queueUrl,
+        MessageBody: messageBody,
+      });
+      await sqsClient.send(command);
+      return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw new Error(`All 3 send attempts failed: ${lastErr.message}`);
 }
 
 function sleep(ms) {

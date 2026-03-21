@@ -89,3 +89,32 @@ func (o *DynamoDBOutbox) MarkAsPublished(ctx context.Context, messageID string) 
 
 	return err
 }
+
+func (o *DynamoDBOutbox) MarkAsFailed(ctx context.Context, messageID string) error {
+	_, err := o.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(o.tableName),
+		Key: map[string]types.AttributeValue{
+			"message_id": &types.AttributeValueMemberS{Value: messageID},
+		},
+		UpdateExpression: aws.String("SET published = :failed"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":failed": &types.AttributeValueMemberN{Value: "-1"},
+		},
+	})
+	return err
+}
+
+func (o *DynamoDBOutbox) IncrementRetryCount(ctx context.Context, messageID string) error {
+	_, err := o.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(o.tableName),
+		Key: map[string]types.AttributeValue{
+			"message_id": &types.AttributeValueMemberS{Value: messageID},
+		},
+		UpdateExpression: aws.String("SET retry_count = if_not_exists(retry_count, :zero) + :one"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":zero": &types.AttributeValueMemberN{Value: "0"},
+			":one":  &types.AttributeValueMemberN{Value: "1"},
+		},
+	})
+	return err
+}

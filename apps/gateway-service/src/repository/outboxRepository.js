@@ -53,8 +53,37 @@ async function markAsPublished(messageId) {
   await docClient.send(command);
 }
 
+async function markAsFailed(messageId) {
+  const command = new UpdateCommand({
+    TableName: OUTBOX_TABLE,
+    Key: { message_id: messageId },
+    UpdateExpression: 'SET published = :failed',
+    ExpressionAttributeValues: {
+      ':failed': -1,
+    },
+  });
+
+  await docClient.send(command);
+}
+
+async function incrementRetryCount(messageId) {
+  const command = new UpdateCommand({
+    TableName: OUTBOX_TABLE,
+    Key: { message_id: messageId },
+    UpdateExpression: 'SET retry_count = if_not_exists(retry_count, :zero) + :one',
+    ExpressionAttributeValues: {
+      ':zero': 0,
+      ':one': 1,
+    },
+  });
+
+  await docClient.send(command);
+}
+
 module.exports = {
   publishEvent,
   getUnpublishedMessages,
   markAsPublished,
+  markAsFailed,
+  incrementRetryCount,
 };
