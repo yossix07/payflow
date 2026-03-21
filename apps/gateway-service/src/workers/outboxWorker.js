@@ -1,6 +1,7 @@
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const { getUnpublishedMessages, markAsPublished, markAsFailed, incrementRetryCount } = require('../repository/outboxRepository');
 const { isShuttingDown } = require('../utils/shutdown');
+const logger = require('../utils/logger');
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.QUEUE_URL;
@@ -12,7 +13,7 @@ const MAX_INTERVAL = 5000;
 const MAX_OUTBOX_RETRIES = 5;
 
 async function startOutboxWorker() {
-  console.log('Starting outbox worker...');
+  logger.info('Starting outbox worker');
   let currentInterval = BASE_INTERVAL;
 
   while (!isShuttingDown()) {
@@ -27,7 +28,7 @@ async function startOutboxWorker() {
       }
       await sleep(currentInterval);
     } catch (error) {
-      console.error('Error processing outbox:', error);
+      logger.error('Error processing outbox', { error: error.message });
       currentInterval = BASE_INTERVAL;
       await sleep(5000);
     }
@@ -51,24 +52,24 @@ async function processOutbox() {
         try {
           await sendWithRetry(queueUrl, JSON.stringify(wrapper));
         } catch (err) {
-          console.error(`Failed to publish message ${msg.message_id} to queue ${queueUrl} after retries:`, err);
+          logger.error('Failed to publish message to queue after retries', { message_id: msg.message_id, queue_url: queueUrl, error: err.message });
           allSent = false;
         }
       }
 
       if (allSent) {
         await markAsPublished(msg.message_id);
-        console.log(`Published event: ${msg.event_type} (${msg.message_id})`);
+        logger.info('Published event', { event_type: msg.event_type, message_id: msg.message_id });
       } else {
         await incrementRetryCount(msg.message_id);
         const currentRetries = (msg.retry_count || 0) + 1;
         if (currentRetries >= MAX_OUTBOX_RETRIES) {
-          console.error(`Marking message ${msg.message_id} as failed after ${currentRetries} retries`);
+          logger.error('Marking message as failed after max retries', { message_id: msg.message_id, retries: currentRetries });
           await markAsFailed(msg.message_id);
         }
       }
     } catch (error) {
-      console.error(`Failed to process message ${msg.message_id}:`, error);
+      logger.error('Failed to process message', { message_id: msg.message_id, error: error.message });
     }
   }
 

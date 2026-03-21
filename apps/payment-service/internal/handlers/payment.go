@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -42,7 +42,7 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 	// Start payment saga
 	payment, err := h.orchestrator.StartPayment(r.Context(), req, idempotencyKey)
 	if err != nil {
-		log.Printf("ERROR creating payment: %v", err)
+		slog.Error("Error creating payment", "error", err)
 		http.Error(w, "Failed to create payment", http.StatusInternalServerError)
 		return
 	}

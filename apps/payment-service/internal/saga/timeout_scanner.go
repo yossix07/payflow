@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	ddbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -31,14 +31,14 @@ func NewTimeoutScanner(repo *repository.DynamoDBRepository, outbox outbox.Outbox
 }
 
 func (s *TimeoutScanner) Start(ctx context.Context) {
-	log.Println("Starting saga timeout scanner...")
+	slog.Info("Starting saga timeout scanner")
 	timer := time.NewTimer(s.scanInterval)
 	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Saga timeout scanner stopped")
+			slog.Info("Saga timeout scanner stopped")
 			return
 		case <-timer.C:
 			s.scanForStuckPayments(ctx)
@@ -58,7 +58,7 @@ func (s *TimeoutScanner) scanForStuckPayments(ctx context.Context) {
 	for _, state := range stuckStates {
 		payments, err := s.repo.GetStuckPayments(ctx, state, threshold)
 		if err != nil {
-			log.Printf("Error scanning for stuck %s payments: %v", state, err)
+			slog.Error("Error scanning for stuck payments", "state", state, "error", err)
 			continue
 		}
 
@@ -69,17 +69,16 @@ func (s *TimeoutScanner) scanForStuckPayments(ctx context.Context) {
 }
 
 func (s *TimeoutScanner) compensatePayment(ctx context.Context, payment *model.Payment) {
-	log.Printf("Timing out stuck payment %s (state: %s, updated: %s)",
-		payment.PaymentID, payment.State, payment.UpdatedAt.Format(time.RFC3339))
+	slog.Info("Timing out stuck payment", "payment_id", payment.PaymentID, "state", payment.State, "updated_at", payment.UpdatedAt.Format(time.RFC3339))
 
 	err := s.repo.ConditionalUpdateState(ctx, payment.PaymentID, payment.State, model.StateTimedOut)
 	if err != nil {
 		var condErr *ddbTypes.ConditionalCheckFailedException
 		if errors.As(err, &condErr) {
-			log.Printf("Payment %s state changed since scan, skipping", payment.PaymentID)
+			slog.Info("Payment state changed since scan, skipping", "payment_id", payment.PaymentID)
 			return
 		}
-		log.Printf("Error updating payment %s to TIMED_OUT: %v", payment.PaymentID, err)
+		slog.Error("Error updating payment to TIMED_OUT", "payment_id", payment.PaymentID, "error", err)
 		return
 	}
 
@@ -91,7 +90,7 @@ func (s *TimeoutScanner) compensatePayment(ctx context.Context, payment *model.P
 		}
 		payload, _ := json.Marshal(event)
 		if err := s.outbox.WriteMessage(ctx, events.EventReleaseFunds, string(payload)); err != nil {
-			log.Printf("ERROR: Failed to publish ReleaseFunds for timed-out payment %s: %v", payment.PaymentID, err)
+			slog.Error("Failed to publish ReleaseFunds for timed-out payment", "payment_id", payment.PaymentID, "error", err)
 		}
 	}
 }

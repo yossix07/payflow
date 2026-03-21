@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/my-saas-platform/ledger-service/internal/repository"
@@ -23,19 +23,19 @@ func NewEventConsumer(queue queue.QueueClient, repo repository.Repository) *Even
 }
 
 func (ec *EventConsumer) Start(ctx context.Context) {
-	log.Println("Starting ledger event consumer...")
+	slog.Info("Starting ledger event consumer")
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Event consumer stopped")
+			slog.Info("Event consumer stopped")
 			return
 		default:
 		}
 
 		messages, err := ec.queue.ReceiveMessages(ctx)
 		if err != nil {
-			log.Printf("Error receiving messages: %v", err)
+			slog.Error("Error receiving messages", "error", err)
 			select {
 			case <-ctx.Done():
 				return
@@ -46,7 +46,7 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 
 		for _, msg := range messages {
 			if err := ec.handleMessage(ctx, msg); err != nil {
-				log.Printf("Error handling message: %v", err)
+				slog.Error("Error handling message", "error", err)
 			} else {
 				ec.queue.DeleteMessage(ctx, msg.ReceiptHandle)
 			}
@@ -64,7 +64,7 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 }
 
 func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) error {
-	log.Printf("Recording ledger entry for event: %s", msg.EventType)
+	slog.Info("Recording ledger entry for event", "event_type", msg.EventType)
 
 	var payload map[string]interface{}
 	if err := json.Unmarshal([]byte(msg.Body), &payload); err != nil {
@@ -87,7 +87,7 @@ func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) e
 		return err
 	}
 
-	log.Printf("Ledger entry recorded: %s for payment %s", msg.EventType, paymentID)
+	slog.Info("Ledger entry recorded", "event_type", msg.EventType, "payment_id", paymentID)
 	return nil
 }
 

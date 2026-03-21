@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"time"
 
@@ -34,19 +34,19 @@ func NewEventConsumer(queue queue.QueueClient, repo repository.Repository, outbo
 }
 
 func (ec *EventConsumer) Start(ctx context.Context) {
-	log.Println("Starting event consumer...")
+	slog.Info("Starting event consumer")
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Event consumer stopped")
+			slog.Info("Event consumer stopped")
 			return
 		default:
 		}
 
 		messages, err := ec.queue.ReceiveMessages(ctx)
 		if err != nil {
-			log.Printf("Error receiving messages: %v", err)
+			slog.Error("Error receiving messages", "error", err)
 			select {
 			case <-ctx.Done():
 				return
@@ -57,7 +57,7 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 
 		for _, msg := range messages {
 			if err := ec.handleMessage(ctx, msg); err != nil {
-				log.Printf("Error handling message: %v", err)
+				slog.Error("Error handling message", "error", err)
 			} else {
 				ec.queue.DeleteMessage(ctx, msg.ReceiptHandle)
 			}
@@ -75,7 +75,7 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 }
 
 func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) error {
-	log.Printf("Received event: %s", msg.EventType)
+	slog.Info("Received event", "event_type", msg.EventType)
 
 	switch msg.EventType {
 	case events.EventReserveFunds:
@@ -93,14 +93,14 @@ func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) e
 		return ec.handleReleaseFunds(ctx, event)
 
 	default:
-		log.Printf("Ignoring event type: %s", msg.EventType)
+		slog.Info("Ignoring event type", "event_type", msg.EventType)
 	}
 
 	return nil
 }
 
 func (ec *EventConsumer) handleReserveFunds(ctx context.Context, event events.ReserveFundsEvent) error {
-	log.Printf("Reserving funds for payment %s: user %s, amount %.2f", event.PaymentID, event.UserID, event.Amount)
+	slog.Info("Reserving funds", "payment_id", event.PaymentID, "user_id", event.UserID, "amount", event.Amount)
 
 	// Create reservation once, idempotently (conditional put ignores duplicates)
 	reservation := &repository.Reservation{
@@ -124,7 +124,7 @@ func (ec *EventConsumer) handleReserveFunds(ctx context.Context, event events.Re
 		}
 
 		if wallet.Balance < event.Amount {
-			log.Printf("Insufficient funds for user %s: balance %.2f, requested %.2f", event.UserID, wallet.Balance, event.Amount)
+			slog.Info("Insufficient funds", "user_id", event.UserID, "balance", wallet.Balance, "requested", event.Amount)
 			return ec.publishInsufficientFunds(ctx, event.PaymentID, event.UserID)
 		}
 
@@ -142,7 +142,7 @@ func (ec *EventConsumer) handleReserveFunds(ctx context.Context, event events.Re
 			return err
 		}
 
-		log.Printf("Funds reserved: reservation %s", reservation.ReservationID)
+		slog.Info("Funds reserved", "reservation_id", reservation.ReservationID)
 		return ec.publishFundsReserved(ctx, event.PaymentID)
 	}
 
@@ -150,17 +150,17 @@ func (ec *EventConsumer) handleReserveFunds(ctx context.Context, event events.Re
 }
 
 func (ec *EventConsumer) handleReleaseFunds(ctx context.Context, event events.ReleaseFundsEvent) error {
-	log.Printf("Releasing funds for payment %s", event.PaymentID)
+	slog.Info("Releasing funds", "payment_id", event.PaymentID)
 
 	// Get reservation
 	reservation, err := ec.repo.GetReservationByPayment(ctx, event.PaymentID)
 	if err != nil {
-		log.Printf("Reservation not found: %v", err)
+		slog.Info("Reservation not found", "payment_id", event.PaymentID, "error", err)
 		return nil // Already released or doesn't exist
 	}
 
 	if reservation.Status != "ACTIVE" {
-		log.Printf("Reservation %s already released", reservation.ReservationID)
+		slog.Info("Reservation already released", "reservation_id", reservation.ReservationID)
 		return nil
 	}
 
@@ -190,7 +190,7 @@ func (ec *EventConsumer) handleReleaseFunds(ctx context.Context, event events.Re
 			return err
 		}
 
-		log.Printf("Funds released: reservation %s", reservation.ReservationID)
+		slog.Info("Funds released", "reservation_id", reservation.ReservationID)
 
 		// Publish FundsReleased event
 		return ec.publishFundsReleased(ctx, event.PaymentID)

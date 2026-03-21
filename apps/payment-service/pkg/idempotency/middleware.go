@@ -2,7 +2,7 @@ package idempotency
 
 import (
 	"bytes"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/my-saas-platform/payment-service/internal/repository"
@@ -30,14 +30,14 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 		// Check if we've seen this key before
 		cachedResponse, statusCode, exists, err := m.repo.CheckIdempotency(r.Context(), key)
 		if err != nil {
-			log.Printf("Error checking idempotency: %v", err)
+			slog.Error("Error checking idempotency", "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
 		if exists {
 			// Return cached response
-			log.Printf("Idempotency key %s already processed, returning cached response", key)
+			slog.Info("Idempotency key already processed, returning cached response", "key", key)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(statusCode)
 			w.Write([]byte(cachedResponse))
@@ -57,7 +57,7 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 		// Save the response for future requests
 		if recorder.statusCode >= 200 && recorder.statusCode < 300 {
 			if err := m.repo.SaveIdempotency(r.Context(), key, recorder.body.String(), recorder.statusCode); err != nil {
-				log.Printf("Failed to save idempotency record: %v", err)
+				slog.Error("Failed to save idempotency record", "error", err)
 			}
 		}
 	})

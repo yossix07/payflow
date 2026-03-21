@@ -1,6 +1,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const { v4: uuidv4 } = require('uuid');
+const logger = require('../utils/logger');
 
 const client = new DynamoDBClient({ region: process.env.AWS_REGION });
 const docClient = DynamoDBDocumentClient.from(client);
@@ -22,7 +23,7 @@ async function publishEvent(eventType, payload) {
   });
 
   await docClient.send(command);
-  console.log(`Event written to outbox: ${eventType} (${message.message_id})`);
+  logger.info('Event written to outbox', { event_type: eventType, message_id: message.message_id });
 }
 
 async function getUnpublishedMessages() {

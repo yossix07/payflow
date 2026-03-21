@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/my-saas-platform/payment-service/internal/events"
@@ -24,19 +24,19 @@ func NewEventConsumer(queue queue.QueueClient, orchestrator *saga.Orchestrator) 
 }
 
 func (ec *EventConsumer) Start(ctx context.Context) {
-	log.Println("Starting event consumer...")
+	slog.Info("Starting event consumer")
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Event consumer stopped")
+			slog.Info("Event consumer stopped")
 			return
 		default:
 		}
 
 		messages, err := ec.queue.ReceiveMessages(ctx)
 		if err != nil {
-			log.Printf("Error receiving messages: %v", err)
+			slog.Error("Error receiving messages", "error", err)
 			select {
 			case <-ctx.Done():
 				return
@@ -47,7 +47,7 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 
 		for _, msg := range messages {
 			if err := ec.handleMessage(ctx, msg); err != nil {
-				log.Printf("Error handling message: %v", err)
+				slog.Error("Error handling message", "error", err)
 			} else {
 				ec.queue.DeleteMessage(ctx, msg.ReceiptHandle)
 			}
@@ -65,7 +65,7 @@ func (ec *EventConsumer) Start(ctx context.Context) {
 }
 
 func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) error {
-	log.Printf("Received event: %s", msg.EventType)
+	slog.Info("Received event", "event_type", msg.EventType)
 
 	switch msg.EventType {
 	case events.EventFundsReserved:
@@ -97,7 +97,7 @@ func (ec *EventConsumer) handleMessage(ctx context.Context, msg queue.Message) e
 		return ec.orchestrator.HandlePaymentFailed(ctx, event.PaymentID, event.Reason)
 
 	default:
-		log.Printf("Ignoring event type: %s", msg.EventType)
+		slog.Info("Ignoring event type", "event_type", msg.EventType)
 	}
 
 	return nil

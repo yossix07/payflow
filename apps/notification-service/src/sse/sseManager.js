@@ -1,3 +1,5 @@
+const logger = require('../utils/logger');
+
 const MAX_CONNECTIONS = parseInt(process.env.SSE_MAX_CONNECTIONS || '1000', 10);
 const HEARTBEAT_INTERVAL = 30000; // 30s
 const IDLE_TIMEOUT = parseInt(process.env.SSE_IDLE_TIMEOUT_MS || '900000', 10); // 15 min
@@ -7,18 +9,18 @@ let heartbeatTimer = null;
 
 function addClient(res) {
   if (clients.size >= MAX_CONNECTIONS) {
-    console.warn(`SSE connection limit reached (${MAX_CONNECTIONS}), rejecting`);
+    logger.warn('SSE connection limit reached, rejecting', { max_connections: MAX_CONNECTIONS });
     res.writeHead(503);
     res.end('Connection limit reached');
     return false;
   }
 
   clients.set(res, { lastWrite: Date.now() });
-  console.log(`SSE client connected. Total clients: ${clients.size}`);
+  logger.info('SSE client connected', { total_clients: clients.size });
 
   res.on('close', () => {
     clients.delete(res);
-    console.log(`SSE client disconnected. Total clients: ${clients.size}`);
+    logger.info('SSE client disconnected', { total_clients: clients.size });
   });
 
   if (clients.size === 1 && !heartbeatTimer) {
@@ -48,7 +50,7 @@ function broadcastEvent(notification) {
     clients.delete(client);
   }
 
-  console.log(`Broadcast event to ${sent}/${total} SSE clients`);
+  logger.info('Broadcast event to SSE clients', { sent, total });
 }
 
 function startHeartbeat() {

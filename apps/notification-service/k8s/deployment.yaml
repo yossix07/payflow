@@ -25,6 +25,8 @@ spec:
               value: "us-east-1"
             - name: QUEUE_URL
               value: "${QUEUE_URL}"
+            - name: SERVICE_NAME
+              value: "notification-service"
           resources:
             requests:
               memory: "128Mi"

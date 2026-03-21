@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,7 +156,7 @@ func (o *Orchestrator) HandlePaymentSucceeded(ctx context.Context, paymentID str
 	}
 
 	if payment.State == model.StateTimedOut {
-		log.Printf("Ignoring late PaymentSucceeded for timed-out payment %s", paymentID)
+		slog.Info("Ignoring late PaymentSucceeded for timed-out payment", "payment_id", paymentID)
 		return nil
 	}
 
@@ -185,7 +185,7 @@ func (o *Orchestrator) HandlePaymentFailed(ctx context.Context, paymentID, reaso
 	}
 
 	if payment.State == model.StateTimedOut {
-		log.Printf("Ignoring late PaymentFailed for timed-out payment %s", paymentID)
+		slog.Info("Ignoring late PaymentFailed for timed-out payment", "payment_id", paymentID)
 		return nil
 	}
 
@@ -227,6 +227,6 @@ func (o *Orchestrator) publishEvent(ctx context.Context, eventType string, event
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
-	log.Printf("Publishing event: %s", eventType)
+	slog.Info("Publishing event", "event_type", eventType)
 	return o.outbox.WriteMessage(ctx, eventType, string(payload))
 }

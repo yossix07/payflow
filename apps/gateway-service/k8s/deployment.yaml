@@ -33,6 +33,8 @@ spec:
               value: "dev-gateway-idempotency"
             - name: SUCCESS_RATE
               value: "0.8"
+            - name: SERVICE_NAME
+              value: "gateway-service"
           resources:
             requests:
               memory: "128Mi"

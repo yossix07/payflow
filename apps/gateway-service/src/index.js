@@ -2,6 +2,7 @@ const express = require("express");
 const { startEventConsumer } = require("./consumers/eventConsumer");
 const { startOutboxWorker } = require("./workers/outboxWorker");
 const { shutdown } = require("./utils/shutdown");
+const logger = require("./utils/logger");
 
 const app = express();
 app.use(express.json());
@@ -18,7 +19,7 @@ app.get("/healthz", (req, res) => {
 const PORT = process.env.PORT || 8080;
 
 async function main() {
-  console.log("Starting Gateway Service...");
+  logger.info("Starting Gateway Service");
 
   // Validate environment variables
   const required = [
@@ -40,24 +41,24 @@ async function main() {
 
   // Start HTTP server
   app.listen(PORT, () => {
-    console.log(`Gateway Service listening on port ${PORT}`);
+    logger.info("Gateway Service listening", { port: PORT });
   });
 }
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
-  console.log("SIGTERM received, shutting down gracefully...");
+  logger.info("SIGTERM received, shutting down gracefully");
   shutdown();
   setTimeout(() => process.exit(0), 10000);
 });
 
 process.on("SIGINT", () => {
-  console.log("SIGINT received, shutting down gracefully...");
+  logger.info("SIGINT received, shutting down gracefully");
   shutdown();
   setTimeout(() => process.exit(0), 10000);
 });
 
 main().catch((err) => {
-  console.error("Failed to start Gateway Service:", err);
+  logger.error("Failed to start Gateway Service", { error: err.message });
   process.exit(1);
 });

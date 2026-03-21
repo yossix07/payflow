@@ -1,12 +1,13 @@
 const { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 const { broadcastEvent } = require('../sse/sseManager');
 const { isShuttingDown } = require('../utils/shutdown');
+const logger = require('../utils/logger');
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.QUEUE_URL;
 
 async function startEventConsumer() {
-  console.log('Starting notification event consumer...');
+  logger.info('Starting notification event consumer');
 
   while (!isShuttingDown()) {
     try {
@@ -17,11 +18,11 @@ async function startEventConsumer() {
           await handleMessage(message);
           await deleteMessage(message.ReceiptHandle);
         } catch (error) {
-          console.error('Error handling message:', error);
+          logger.error('Error handling message', { error: error.message });
         }
       }
     } catch (error) {
-      console.error('Error receiving messages:', error);
+      logger.error('Error receiving messages', { error: error.message });
       await sleep(5000);
     }
   }
@@ -43,7 +44,7 @@ async function handleMessage(message) {
   const eventType = body.event_type;
   const payload = body.payload;
 
-  console.log(`Broadcasting event: ${eventType}`);
+  logger.info('Broadcasting event', { event_type: eventType });
 
   // Format notification based on event type
   const notification = formatNotification(eventType, payload);

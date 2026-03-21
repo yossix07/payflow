@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,7 +25,8 @@ type HealthResponse struct {
 }
 
 func main() {
-	log.Println("Starting Ledger Service...")
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	slog.Info("Starting Ledger Service...")
 
 	queueURL := os.Getenv("QUEUE_URL")
 	ledgerTable := os.Getenv("LEDGER_TABLE")
@@ -82,7 +84,7 @@ func main() {
 	}
 
 	go func() {
-		log.Println("Ledger Service listening on :8080")
+		slog.Info("Ledger Service listening on :8080")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
@@ -92,7 +94,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
 	cancel()
 
 	done := make(chan struct{})
@@ -103,9 +105,9 @@ func main() {
 
 	select {
 	case <-done:
-		log.Println("Background workers stopped cleanly")
+		slog.Info("Background workers stopped cleanly")
 	case <-time.After(10 * time.Second):
-		log.Println("Timeout waiting for background workers")
+		slog.Info("Timeout waiting for background workers")
 	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -115,5 +117,5 @@ func main() {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server exited")
+	slog.Info("Server exited")
 }

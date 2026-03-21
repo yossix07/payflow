@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/my-saas-platform/wallet-service/pkg/queue"
@@ -26,7 +26,7 @@ func NewWorker(outbox Outbox, queues []queue.QueueClient) *Worker {
 }
 
 func (w *Worker) Start(ctx context.Context) {
-	log.Println("Starting outbox worker...")
+	slog.Info("Starting outbox worker")
 
 	baseInterval := 500 * time.Millisecond
 	maxInterval := 5 * time.Second
@@ -38,12 +38,12 @@ func (w *Worker) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Outbox worker stopped")
+			slog.Info("Outbox worker stopped")
 			return
 		case <-timer.C:
 			count, err := w.processOutbox(ctx)
 			if err != nil {
-				log.Printf("Error processing outbox: %v", err)
+				slog.Error("Error processing outbox", "error", err)
 				currentInterval = baseInterval
 			} else if count >= 10 {
 				currentInterval = 0
@@ -79,7 +79,7 @@ func (w *Worker) processOutbox(ctx context.Context) (int, error) {
 
 		body, err := json.Marshal(wrapper)
 		if err != nil {
-			log.Printf("Failed to marshal message: %v", err)
+			slog.Error("Failed to marshal message", "error", err)
 			continue
 		}
 
@@ -87,25 +87,25 @@ func (w *Worker) processOutbox(ctx context.Context) (int, error) {
 		allSent := true
 		for _, q := range w.queues {
 			if err := sendWithRetry(ctx, q, string(body)); err != nil {
-				log.Printf("Failed to publish message %s to queue after retries: %v", msg.MessageID, err)
+				slog.Error("Failed to publish message to queue after retries", "message_id", msg.MessageID, "error", err)
 				allSent = false
 			}
 		}
 
 		if allSent {
 			if err := w.outbox.MarkAsPublished(ctx, msg.MessageID); err != nil {
-				log.Printf("Failed to mark message as published: %v", err)
+				slog.Error("Failed to mark message as published", "message_id", msg.MessageID, "error", err)
 			} else {
-				log.Printf("Published event: %s (message_id: %s)", msg.EventType, msg.MessageID)
+				slog.Info("Published event", "event_type", msg.EventType, "message_id", msg.MessageID)
 			}
 		} else {
 			if err := w.outbox.IncrementRetryCount(ctx, msg.MessageID); err != nil {
-				log.Printf("Failed to increment retry count for message %s: %v", msg.MessageID, err)
+				slog.Error("Failed to increment retry count for message", "message_id", msg.MessageID, "error", err)
 			}
 			if msg.RetryCount+1 >= maxOutboxRetries {
-				log.Printf("Marking message %s as failed after %d retries", msg.MessageID, msg.RetryCount+1)
+				slog.Error("Marking message as failed after max retries", "message_id", msg.MessageID, "retries", msg.RetryCount+1)
 				if err := w.outbox.MarkAsFailed(ctx, msg.MessageID); err != nil {
-					log.Printf("Failed to mark message %s as failed: %v", msg.MessageID, err)
+					slog.Error("Failed to mark message as failed", "message_id", msg.MessageID, "error", err)
 				}
 			}
 		}

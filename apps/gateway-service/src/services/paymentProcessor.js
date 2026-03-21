@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { saveTransaction } = require('../repository/transactionRepository');
 const { publishEvent } = require('../repository/outboxRepository');
+const logger = require('../utils/logger');
 
 /**
  * Mock payment processor
@@ -11,7 +12,7 @@ const { publishEvent } = require('../repository/outboxRepository');
 async function processPayment(payload) {
   const { payment_id, user_id, amount } = payload;
 
-  console.log(`Processing payment ${payment_id} for user ${user_id}: $${amount}`);
+  logger.info('Processing payment', { payment_id, user_id, amount });
 
   // Simulate processing delay
   await sleep(Math.random() * 2000 + 500); // 500-2500ms
@@ -40,14 +41,14 @@ async function processPayment(payload) {
 
   // Publish event via outbox
   if (isSuccess) {
-    console.log(`Payment ${payment_id} succeeded (transaction: ${transactionId})`);
+    logger.info('Payment succeeded', { payment_id, transaction_id: transactionId });
     await publishEvent('PaymentSucceeded', {
       payment_id,
       transaction_id: transactionId,
       timestamp,
     });
   } else {
-    console.log(`Payment ${payment_id} failed`);
+    logger.info('Payment failed', { payment_id });
     await publishEvent('PaymentFailed', {
       payment_id,
       reason: 'Gateway declined transaction',
