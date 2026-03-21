@@ -89,4 +89,11 @@ awslocal dynamodb create-table \
     --key-schema AttributeName=transaction_id,KeyType=HASH \
     --billing-mode PAY_PER_REQUEST
 
+# Gateway Idempotency
+awslocal dynamodb create-table \
+    --table-name gateway-idempotency \
+    --attribute-definitions AttributeName=payment_id,AttributeType=S \
+    --key-schema AttributeName=payment_id,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST
+
 echo "LocalStack resources initialized!"

@@ -86,6 +86,7 @@ services:
       - BROADCAST_QUEUE_URLS=http://localstack:4566/000000000000/payment-queue,http://localstack:4566/000000000000/wallet-queue,http://localstack:4566/000000000000/gateway-queue,http://localstack:4566/000000000000/ledger-queue,http://localstack:4566/000000000000/notification-queue
       - TRANSACTIONS_TABLE=transactions
       - OUTBOX_TABLE=gateway-outbox
+      - IDEMPOTENCY_TABLE=gateway-idempotency
       - PORT=8080
     depends_on:
       - localstack
