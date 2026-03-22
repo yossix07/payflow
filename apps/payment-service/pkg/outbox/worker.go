@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -12,6 +14,15 @@ import (
 )
 
 const maxOutboxRetries = 5
+
+func getEnvDuration(key string, defaultMs int) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if ms, err := strconv.Atoi(v); err == nil {
+			return time.Duration(ms)
+		}
+	}
+	return time.Duration(defaultMs)
+}
 
 // Worker polls the outbox and publishes messages to all queues
 type Worker struct {
@@ -34,8 +45,8 @@ func NewWorker(outbox Outbox, queues []queue.QueueClient) *Worker {
 func (w *Worker) Start(ctx context.Context) {
 	slog.Info("Starting outbox worker")
 
-	baseInterval := 500 * time.Millisecond
-	maxInterval := 5 * time.Second
+	baseInterval := getEnvDuration("OUTBOX_POLL_INTERVAL_MS", 100) * time.Millisecond
+	maxInterval := getEnvDuration("OUTBOX_MAX_INTERVAL_MS", 5000) * time.Millisecond
 	currentInterval := baseInterval
 
 	timer := time.NewTimer(currentInterval)

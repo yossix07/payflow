@@ -8,8 +8,8 @@ const QUEUE_URL = process.env.QUEUE_URL;
 const BROADCAST_QUEUE_URLS = process.env.BROADCAST_QUEUE_URLS
   ? process.env.BROADCAST_QUEUE_URLS.split(',').map(u => u.trim()).filter(Boolean)
   : [QUEUE_URL];
-const BASE_INTERVAL = 500;
-const MAX_INTERVAL = 5000;
+const BASE_INTERVAL = parseInt(process.env.OUTBOX_POLL_INTERVAL_MS || '100', 10);
+const MAX_INTERVAL = parseInt(process.env.OUTBOX_MAX_INTERVAL_MS || '5000', 10);
 const MAX_OUTBOX_RETRIES = 5;
 
 async function startOutboxWorker() {
