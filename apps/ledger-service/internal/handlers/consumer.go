@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/my-saas-platform/ledger-service/internal/repository"
-	"github.com/my-saas-platform/ledger-service/pkg/queue"
+	"github.com/payflow/ledger-service/internal/repository"
+	"github.com/payflow/ledger-service/pkg/queue"
 )
 
 type EventConsumer struct {

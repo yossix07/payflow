@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A distributed SaaS payment processing platform using event-driven microservices on AWS (EKS, SQS, DynamoDB). Designed for ephemeral, cost-conscious infrastructure (~$5/month target).
+A distributed payment processing platform (PayFlow) using event-driven microservices on AWS (EKS, SQS, DynamoDB). Designed for ephemeral, cost-conscious infrastructure (~$5/month target).
 
 ## Architecture
 

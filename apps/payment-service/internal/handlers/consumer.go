@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/my-saas-platform/payment-service/internal/events"
-	"github.com/my-saas-platform/payment-service/internal/saga"
-	"github.com/my-saas-platform/payment-service/pkg/queue"
+	"github.com/payflow/payment-service/internal/events"
+	"github.com/payflow/payment-service/internal/saga"
+	"github.com/payflow/payment-service/pkg/queue"
 )
 
 type EventConsumer struct {

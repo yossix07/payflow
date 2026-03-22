@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/ledger-service/internal/repository"
+	"github.com/payflow/ledger-service/internal/repository"
 )
 
 func TestGetEntries_ReturnsLedgerEntries(t *testing.T) {

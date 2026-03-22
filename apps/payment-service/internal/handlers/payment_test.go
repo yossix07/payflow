@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/payment-service/internal/saga"
+	"github.com/payflow/payment-service/internal/saga"
 )
 
 func TestCreatePayment_Returns201(t *testing.T) {

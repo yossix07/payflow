@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/my-saas-platform/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/model"
 )
 
 type mockRepository struct {

@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/ledger-service/internal/repository"
+	"github.com/payflow/ledger-service/internal/repository"
 )
 
 type LedgerHandler struct {

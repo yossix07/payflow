@@ -1,4 +1,4 @@
-module github.com/my-saas-platform/payment-service
+module github.com/payflow/payment-service
 
 go 1.21
 

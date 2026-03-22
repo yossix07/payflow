@@ -1,4 +1,4 @@
-module github.com/my-saas-platform/ledger-service
+module github.com/payflow/ledger-service
 
 go 1.21
 

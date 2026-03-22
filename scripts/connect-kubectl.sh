@@ -15,7 +15,7 @@
 
 REGION="us-east-1"
 CLUSTER_NAME="dev-cluster"
-ALIAS="saas-dev"
+ALIAS="payflow-dev"
 
 echo "Connecting to EKS cluster: $CLUSTER_NAME in $REGION..."
 

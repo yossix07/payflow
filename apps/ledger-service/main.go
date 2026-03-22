@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/ledger-service/internal/handlers"
-	"github.com/my-saas-platform/ledger-service/internal/repository"
-	"github.com/my-saas-platform/ledger-service/pkg/queue"
+	"github.com/payflow/ledger-service/internal/handlers"
+	"github.com/payflow/ledger-service/internal/repository"
+	"github.com/payflow/ledger-service/pkg/queue"
 )
 
 type HealthResponse struct {

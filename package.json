@@ -1,8 +1,8 @@
 {
-  "name": "saas-payment-platform",
+  "name": "payflow",
   "version": "1.0.0",
   "private": true,
-  "description": "Distributed SaaS payment processing platform with event-driven microservices",
+  "description": "Distributed payment processing platform with event-driven microservices",
   "scripts": {
     "env:up": "node scripts/env-up.js",
     "env:down": "docker compose down -v",

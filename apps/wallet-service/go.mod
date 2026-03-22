@@ -1,4 +1,4 @@
-module github.com/my-saas-platform/wallet-service
+module github.com/payflow/wallet-service
 
 go 1.21
 

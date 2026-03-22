@@ -11,10 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
-	"github.com/my-saas-platform/wallet-service/internal/events"
-	"github.com/my-saas-platform/wallet-service/internal/repository"
-	"github.com/my-saas-platform/wallet-service/pkg/outbox"
-	"github.com/my-saas-platform/wallet-service/pkg/queue"
+	"github.com/payflow/wallet-service/internal/events"
+	"github.com/payflow/wallet-service/internal/repository"
+	"github.com/payflow/wallet-service/pkg/outbox"
+	"github.com/payflow/wallet-service/pkg/queue"
 )
 
 const walletUpdateMaxRetries = 3

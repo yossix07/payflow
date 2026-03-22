@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/my-saas-platform/ledger-service/internal/repository"
+	"github.com/payflow/ledger-service/internal/repository"
 )
 
 type mockRepository struct {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/my-saas-platform/wallet-service/internal/repository"
-	"github.com/my-saas-platform/wallet-service/pkg/outbox"
-	"github.com/my-saas-platform/wallet-service/pkg/queue"
+	"github.com/payflow/wallet-service/internal/repository"
+	"github.com/payflow/wallet-service/pkg/outbox"
+	"github.com/payflow/wallet-service/pkg/queue"
 )
 
 // ---------- Mock Repository ----------

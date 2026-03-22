@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/my-saas-platform/payment-service/pkg/queue"
+	"github.com/payflow/payment-service/pkg/queue"
 )
 
 const maxOutboxRetries = 5

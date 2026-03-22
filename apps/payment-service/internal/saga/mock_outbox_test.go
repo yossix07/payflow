@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/my-saas-platform/payment-service/pkg/outbox"
+	"github.com/payflow/payment-service/pkg/outbox"
 )
 
 type mockOutbox struct {

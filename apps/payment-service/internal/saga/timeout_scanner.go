@@ -8,10 +8,10 @@ import (
 	"time"
 
 	ddbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/my-saas-platform/payment-service/internal/events"
-	"github.com/my-saas-platform/payment-service/internal/model"
-	"github.com/my-saas-platform/payment-service/internal/repository"
-	"github.com/my-saas-platform/payment-service/pkg/outbox"
+	"github.com/payflow/payment-service/internal/events"
+	"github.com/payflow/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/repository"
+	"github.com/payflow/payment-service/pkg/outbox"
 )
 
 type TimeoutScanner struct {

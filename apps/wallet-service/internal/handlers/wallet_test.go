@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/wallet-service/internal/repository"
+	"github.com/payflow/wallet-service/internal/repository"
 )
 
 func TestGetWallet_ReturnsBalance(t *testing.T) {

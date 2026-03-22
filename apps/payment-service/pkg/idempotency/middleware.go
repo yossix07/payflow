@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/my-saas-platform/payment-service/internal/repository"
+	"github.com/payflow/payment-service/internal/repository"
 )
 
 // Middleware provides idempotency protection

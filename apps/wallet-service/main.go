@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/wallet-service/internal/handlers"
-	"github.com/my-saas-platform/wallet-service/internal/repository"
-	"github.com/my-saas-platform/wallet-service/pkg/outbox"
-	"github.com/my-saas-platform/wallet-service/pkg/queue"
+	"github.com/payflow/wallet-service/internal/handlers"
+	"github.com/payflow/wallet-service/internal/repository"
+	"github.com/payflow/wallet-service/pkg/outbox"
+	"github.com/payflow/wallet-service/pkg/queue"
 )
 
 type HealthResponse struct {

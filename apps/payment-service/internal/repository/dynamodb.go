@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/my-saas-platform/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/model"
 )
 
 type DynamoDBRepository struct {

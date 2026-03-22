@@ -1,8 +1,8 @@
-# SaaS-Ready Production Cluster
+# PayFlow
 
 ## Overview
 
-This project implements a cost-efficient, scalable, and secure "SaaS-Ready Production Cluster" using AWS, EKS, and Terraform. It leverages ephemeral infrastructure concepts (spin-up / tear-down) to minimize costs during development and testing.
+PayFlow is a cost-efficient, scalable, and secure distributed payment processing platform using AWS, EKS, and Terraform. It leverages ephemeral infrastructure concepts (spin-up / tear-down) to minimize costs during development and testing.
 
 ## Technology Stack
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/my-saas-platform/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/model"
 )
 
 func TestStartPayment_CreatesPaymentInPendingState(t *testing.T) {

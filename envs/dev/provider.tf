@@ -24,7 +24,7 @@ provider "aws" {
   
   default_tags {
     tags = {
-      Project     = "SaaS-Cluster"
+      Project     = "PayFlow"
       Environment = "dev"
       ManagedBy   = "Terraform"
     }

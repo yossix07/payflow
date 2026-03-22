@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/payment-service/internal/model"
-	"github.com/my-saas-platform/payment-service/internal/repository"
-	"github.com/my-saas-platform/payment-service/internal/saga"
+	"github.com/payflow/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/repository"
+	"github.com/payflow/payment-service/internal/saga"
 )
 
 type PaymentHandler struct {

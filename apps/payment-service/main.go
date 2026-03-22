@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/my-saas-platform/payment-service/internal/handlers"
-	"github.com/my-saas-platform/payment-service/internal/model"
-	"github.com/my-saas-platform/payment-service/internal/repository"
-	"github.com/my-saas-platform/payment-service/internal/saga"
-	"github.com/my-saas-platform/payment-service/pkg/idempotency"
-	"github.com/my-saas-platform/payment-service/pkg/outbox"
-	"github.com/my-saas-platform/payment-service/pkg/queue"
+	"github.com/payflow/payment-service/internal/handlers"
+	"github.com/payflow/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/repository"
+	"github.com/payflow/payment-service/internal/saga"
+	"github.com/payflow/payment-service/pkg/idempotency"
+	"github.com/payflow/payment-service/pkg/outbox"
+	"github.com/payflow/payment-service/pkg/queue"
 )
 
 type HealthResponse struct {

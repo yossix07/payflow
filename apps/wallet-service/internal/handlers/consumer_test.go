@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/my-saas-platform/wallet-service/internal/events"
-	"github.com/my-saas-platform/wallet-service/internal/repository"
+	"github.com/payflow/wallet-service/internal/events"
+	"github.com/payflow/wallet-service/internal/repository"
 )
 
 func TestReserveFunds_Success(t *testing.T) {

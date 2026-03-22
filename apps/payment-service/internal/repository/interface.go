@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/my-saas-platform/payment-service/internal/model"
+	"github.com/payflow/payment-service/internal/model"
 )
 
 // Repository defines the interface for payment data operations

@@ -99,7 +99,7 @@ provider "aws" {
   # -------------------------------------------------------------------------
   default_tags {
     tags = {
-      Project   = "SaaS-Cluster"
+      Project   = "PayFlow"
       ManagedBy = "Terraform"
       Purpose   = "State-Bootstrap"
     }

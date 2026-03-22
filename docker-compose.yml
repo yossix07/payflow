@@ -11,7 +11,7 @@ services:
     volumes:
       - "./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-aws.sh"
     networks:
-      - saas-network
+      - payflow-network
 
   payment-service:
     build:
@@ -32,7 +32,7 @@ services:
     ports:
       - "8081:8080"
     networks:
-      - saas-network
+      - payflow-network
 
   ledger-service:
     build:
@@ -50,7 +50,7 @@ services:
     ports:
       - "8082:8080"
     networks:
-      - saas-network
+      - payflow-network
 
   wallet-service:
     build:
@@ -71,7 +71,7 @@ services:
     ports:
       - "8083:8080"
     networks:
-      - saas-network
+      - payflow-network
 
   gateway-service:
     build:
@@ -93,7 +93,7 @@ services:
     ports:
       - "8084:8080"
     networks:
-      - saas-network
+      - payflow-network
 
   notification-service:
     build:
@@ -111,7 +111,7 @@ services:
     ports:
       - "8085:8080"
     networks:
-      - saas-network
+      - payflow-network
 
   platform-dashboard:
     build:
@@ -126,8 +126,8 @@ services:
       - payment-service
       - notification-service
     networks:
-      - saas-network
+      - payflow-network
 
 networks:
-  saas-network:
+  payflow-network:
     driver: bridge

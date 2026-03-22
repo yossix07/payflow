@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/my-saas-platform/wallet-service/pkg/queue"
+	"github.com/payflow/wallet-service/pkg/queue"
 )
 
 const maxOutboxRetries = 5
