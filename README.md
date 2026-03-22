@@ -1,109 +1,120 @@
 # PayFlow
 
-## Overview
+Distributed payment processing platform using event-driven microservices on AWS.
 
-PayFlow is a cost-efficient, scalable, and secure distributed payment processing platform using AWS, EKS, and Terraform. It leverages ephemeral infrastructure concepts (spin-up / tear-down) to minimize costs during development and testing.
+## Architecture
 
-## Technology Stack
-
-- **Infrastructure as Code:** Terraform
-- **Cloud Provider:** AWS
-- **Orchestration:** Kubernetes (EKS)
-- **Package Management:** Helm
-
-## Directory Structure
-
-- `modules/`: Reusable Terraform modules (Network, Compute, Bootstrap).
-- `envs/`: Environment-specific configurations (Dev, Prod).
-- `apps/`: Source code for the applications (e.g., Platform Dashboard).
-
----
-
-## 🚀 Deployment Guide
-
-This guide details how to deploy the infrastructure from scratch using Docker to ensure reproducibility.
-
-### 1. Prerequisites
-
-**Tools:**
-
-- **Docker**: Installed and running (we use Docker to run Terraform/AWS CLI).
-- **Git**: To clone the repository.
-
-**AWS Permissions:**
-You need an AWS Account with **AdministratorAccess** or the following more-specific permissions:
-
-- **EC2**: Create instances, VPCs, Security Groups, Load Balancers.
-- **EKS**: Create clusters and node groups.
-- **IAM**: Create roles and policies.
-- **S3**: For Terraform state storage (if using remote state).
-- **VPC**: Manage networking components.
-
-**Credentials:**
-Create a file named `.aws.env` in the root of the project:
-
-```env
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-# AWS_SESSION_TOKEN=your_token (Required if using temporary credentials)
-AWS_REGION=us-east-1
-ECR_REGISTRY_URL=your_account_id.dkr.ecr.us-east-1.amazonaws.com
+```
+                    ┌─────────────────┐
+                    │   Dashboard     │ :3000
+                    │  (Go + HTML)    │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │ Payment Service │ :8081  ← Saga Orchestrator
+                    │     (Go)        │
+                    └────────┬────────┘
+                             │ SQS
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+     ┌────────────┐  ┌──────────────┐  ┌────────────────┐
+     │   Wallet   │  │   Gateway    │  │  Notification  │
+     │  Service   │  │   Service    │  │    Service     │
+     │   (Go)     │  │  (Node.js)   │  │   (Node.js)   │
+     │   :8083    │  │    :8084     │  │    :8085       │
+     └────────────┘  └──────────────┘  └────────────────┘
+              │              │              │ SSE
+              ▼              ▼              ▼
+         DynamoDB        DynamoDB      Browser
 ```
 
-### 2. Deploy Infrastructure
+**Pattern:** Saga orchestration with transactional outbox. Services communicate via SQS queues — no direct HTTP calls between services.
 
-Run the following commands from the project root.
+## Tech Stack
 
-**Step A: Build & Push Applications**
-_(Required for initial setup or after code changes)_
+| Layer | Technology |
+|-------|-----------|
+| Backend | Go (Gorilla Mux), Node.js (Express) |
+| Messaging | AWS SQS (with DLQs) |
+| Database | AWS DynamoDB (GSIs, conditional writes, TTL) |
+| Infrastructure | Terraform (modular), Kubernetes (EKS v1.29), Helm |
+| Networking | AWS VPC (multi-AZ), NGINX Ingress |
+| Real-time | Server-Sent Events (SSE) |
+| Local Dev | Docker Compose, LocalStack |
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/deploy_dashboard.ps1
+## Key Patterns
+
+- **Optimistic locking** — DynamoDB version-based conditional writes prevent lost updates
+- **Idempotency** — Deduplication tables with conditional puts prevent duplicate processing
+- **Transactional outbox** — Reliable event publishing with adaptive polling and poison pill handling
+- **Saga timeout & compensation** — Automatic detection and recovery of stuck payments
+- **Graceful shutdown** — Connection draining on SIGTERM via WaitGroup (Go) / shutdown flag (Node.js)
+- **Structured logging** — JSON output with contextual fields across all services
+
+## Quick Start (Local)
+
+```bash
+# Prerequisites: Docker, Node.js
+
+# Start all services + LocalStack
+npm run env:up
+
+# Open dashboard
+npm run demo
+
+# Trigger a payment flow
+npm run demo:trigger
+
+# Check service status
+npm run env:status
+
+# Stop everything
+npm run env:down
 ```
 
-**Step B: Initialize Terraform**
+## Testing
 
-```powershell
-cd envs/dev
-docker run --rm -v "${PWD}/../../:/workspace" -w /workspace/envs/dev --env-file ../../.aws.env hashicorp/terraform:light init
+```bash
+npm run test:unit          # Unit tests (all Go services)
+npm run test:integration   # Integration tests (requires env:up)
+npm test                   # Both
 ```
 
-**Step B: Plan Deployment**
+## Deploy to AWS
 
-```powershell
-docker run --rm -v "${PWD}/../../:/workspace" -w /workspace/envs/dev --env-file ../../.aws.env hashicorp/terraform:light plan
+```bash
+# Prerequisites: AWS credentials in .aws.env, Terraform, kubectl
+
+# Bootstrap Terraform state (one-time)
+cd envs/state-bootstrap && terraform init && terraform apply
+
+# Deploy dev environment
+cd envs/dev && terraform init && terraform apply
+
+# Connect kubectl
+./scripts/connect-kubectl.sh
+
+# Tear down
+cd envs/dev && terraform destroy
 ```
 
-**Step C: Apply Changes**
+## Project Structure
 
-```powershell
-docker run --rm -v "${PWD}/../../:/workspace" -w /workspace/envs/dev --env-file ../../.aws.env hashicorp/terraform:light apply -auto-approve
 ```
-
----
-
-## 🔍 Verification & Access
-
-After deployment, the AWS Load Balancer takes a few minutes to provision. Use this command to fetch your public Entry Point URL.
-
-**Get Load Balancer URL:**
-
-```powershell
-docker run --rm --env-file ../../.aws.env --entrypoint sh amazon/aws-cli -c "aws sts get-caller-identity && curl -s -LO https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl && chmod +x kubectl && aws eks update-kubeconfig --name dev-cluster --region us-east-1 > /dev/null && kubectl get svc nginx-ingress-ingress-nginx-controller -n ingress-nginx -o jsonpath='http://{.status.loadBalancer.ingress[0].hostname}'"
+apps/
+  payment-service/     Go — Saga orchestrator, timeout scanner
+  wallet-service/      Go — Balance management, fund reservations
+  ledger-service/      Go — Immutable audit trail
+  gateway-service/     Node.js — Mock payment gateway
+  notification-service/ Node.js — Real-time SSE notifications
+  platform-dashboard/  Go — Admin dashboard (static HTML)
+modules/
+  network/             Terraform — VPC, subnets, NAT
+  compute/             Terraform — EKS, node groups, IAM
+  messaging/           Terraform — SQS queues, DynamoDB tables
+envs/
+  dev/                 Dev environment (~$5/month)
+  prod/                Production config (not deployed)
+k8s/
+  prod/                HPA, PDB manifests
 ```
-
-> **Note:** Accessing this URL will likely return a `404 Not Found` (Nginx default page). This confirms the infrastructure is working and routing traffic correctly to the cluster!
-
----
-
-## 🧹 Tear Down (Destroy)
-
-To destroy all resources and stop incurring costs:
-
-```powershell
-docker run --rm -v "${PWD}/../../:/workspace" -w /workspace/envs/dev --env-file ../../.aws.env hashicorp/terraform:light destroy -auto-approve
-```
-
-## FinOps Strategy
-
-Designed with a strict budget of $5.00/month for learning purposes. Ensure you have an AWS Budget set up before deploying.
